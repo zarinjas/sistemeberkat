@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\AidApplication;
 use App\Models\FormSchema;
 use App\Models\ApplicationStatusHistory;
+use App\Services\ApplicationPdfService;
+use App\Services\ApplicationSubmissionNotificationService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ApplicationPreScoringService;
 use Inertia\Inertia;
@@ -48,9 +51,35 @@ class AidApplicationController extends Controller
             ->reject(fn (AidApplication $application) => $application->status === AidApplication::STATUS_DRAFT)
             ->values();
 
+
+        $availableForms = FormSchema::query()
+            ->where('lifecycle_status', FormSchema::STATUS_PUBLISHED)
+            ->where('is_active', true)
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (FormSchema $schema) use ($drafts) {
+                $linkedDraft = $drafts->first(function (AidApplication $draft) use ($schema) {
+                    return (int) data_get($draft->dynamic_payload, '_form_id') === (int) $schema->id;
+                });
+
+                return [
+                    'id' => $schema->id,
+                    'title' => $schema->category_name,
+                    'category_key' => $schema->category_key,
+                    'card_color' => $schema->card_color,
+                    'description' => data_get($schema->schema_json, 'description', 'Borang permohonan bantuan BERKAT.'),
+                    'version' => $schema->version,
+                    'has_draft' => (bool) $linkedDraft,
+                    'draft_id' => $linkedDraft?->id,
+                ];
+            })
+            ->values();
+
         return Inertia::render('Applications/Index', [
             'applications' => $applications,
             'drafts' => $drafts,
+            'availableForms' => $availableForms,
         ]);
     }
 
@@ -112,7 +141,7 @@ class AidApplicationController extends Controller
         ]);
     }
 
-    public function store(Request $request, ApplicationPreScoringService $preScoringService): RedirectResponse
+    public function store(Request $request, ApplicationPreScoringService $preScoringService, ApplicationSubmissionNotificationService $applicationSubmissionNotificationService): RedirectResponse
     {
         $isDraft = $request->boolean('is_draft');
 
@@ -220,7 +249,7 @@ class AidApplicationController extends Controller
                 $categoryTags,
             );
 
-        DB::transaction(function () use ($request, $validated, $status, $scored, $isDraft, $dynamicPayload, $categoryTags, $uploadedWalletDocIds) {
+        $applicationId = DB::transaction(function () use ($request, $validated, $status, $scored, $isDraft, $dynamicPayload, $categoryTags, $uploadedWalletDocIds) {
             $existingDraft = null;
 
             if (!empty($validated['draft_application_id'])) {
@@ -268,7 +297,23 @@ class AidApplicationController extends Controller
                 'notes' => $isDraft ? 'Application saved as draft.' : 'Application submitted.',
                 'changed_at' => now(),
             ]);
+
+            return $application->id;
         });
+
+        if (! $isDraft && $applicationId) {
+            try {
+                $application = AidApplication::query()
+                    ->with('user')
+                    ->find($applicationId);
+
+                if ($application) {
+                    $applicationSubmissionNotificationService->sendSubmissionEmails($application);
+                }
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
 
         return redirect()
             ->route('applications.index')
@@ -283,7 +328,32 @@ class AidApplicationController extends Controller
 
         return Inertia::render('Applications/Show', [
             'application' => $application,
+            'submittedForm' => $application->buildFormPreview(),
         ]);
+    }
+
+    public function downloadPdf(Request $request, AidApplication $application, ApplicationPdfService $applicationPdfService)
+    {
+        $user = $request->user();
+        $isOwner = (int) $application->user_id === (int) $user->id;
+        $isReviewer = $user?->isAdmin() || $user?->isSuperAdmin();
+
+        abort_unless($isOwner || $isReviewer, 403);
+
+        $pdfPath = $application->submission_pdf_path;
+
+        if (! $pdfPath || ! Storage::disk('local')->exists($pdfPath)) {
+            $pdfPath = $applicationPdfService->generateAndStore($application);
+
+            $application->update([
+                'submission_pdf_path' => $pdfPath,
+                'submission_pdf_generated_at' => now(),
+            ]);
+        }
+
+        $filename = 'borang-'.$application->reference_no.'.pdf';
+
+        return Storage::disk('local')->download($pdfPath, $filename);
     }
 
     public function destroyDraft(Request $request, AidApplication $application): RedirectResponse

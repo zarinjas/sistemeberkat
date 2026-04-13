@@ -2,8 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\GuidelinePage;
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -62,6 +64,20 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'guidelinesNav' => fn () => Schema::hasTable('guideline_pages')
+                ? GuidelinePage::query()
+                    ->where('is_published', true)
+                    ->orderBy('sort_order')
+                    ->orderByDesc('published_at')
+                    ->orderByDesc('created_at')
+                    ->get(['title', 'slug'])
+                    ->map(fn (GuidelinePage $page) => [
+                        'title' => $page->title,
+                        'slug' => $page->slug,
+                    ])
+                    ->values()
+                    ->all()
+                : [],
         ];
     }
 }

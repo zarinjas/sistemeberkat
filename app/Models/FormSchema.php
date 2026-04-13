@@ -17,6 +17,7 @@ class FormSchema extends Model
     protected $fillable = [
         'category_key',
         'category_name',
+        'card_color',
         'version',
         'schema_json',
         'published_at',

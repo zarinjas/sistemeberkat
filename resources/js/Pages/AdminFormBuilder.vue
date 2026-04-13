@@ -58,6 +58,8 @@ const editingFormId = ref(props.editingSchema?.id || null);
 const formCategoryKey = ref(props.editingSchema?.category_key || categoryOptions.value[0]?.key || 'pendidikan');
 const formVersion = ref(props.editingSchema?.version || '');
 const showPublishPreview = ref(false);
+const formCardColor = ref(props.editingSchema?.card_color || '#f8fafc');
+const formDescription = ref(props.editingSchema?.schema_json?.description || '');
 const publishedSchemaJson = ref('');
 const newCategoryName = ref('');
 const editingCategoryKey = ref(null);
@@ -301,7 +303,9 @@ const buildPayload = () => {
     return {
         form_schema_id: editingFormId.value,
         category_key: formCategoryKey.value,
+        card_color: formCardColor.value,
         category_name: selectedCategoryOption.value?.label || 'Bantuan Umum',
+        description: formDescription.value?.trim() || null,
         version: version || null,
         fields: formFields.value.map((field, index) => ({
             order: index + 1,
@@ -413,17 +417,17 @@ const onCategoryKeyChange = () => {
 </script>
 
 <template>
-    <Head title="Admin Dynamic Form Builder" />
+    <Head title="Pembina Borang" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <h2 class="text-xl font-semibold leading-tight text-slate-800">Admin Dynamic Form Builder</h2>
+                <h2 class="text-xl font-semibold leading-tight text-slate-800">Pembina Borang</h2>
                 <Link
                     :href="route('forms.manage')"
                     class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                    Urus Semua Borang
+                    Senarai Borang
                 </Link>
             </div>
         </template>
@@ -481,15 +485,28 @@ const onCategoryKeyChange = () => {
                                     </select>
                                 </div>
 
-                                <div>
-                                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Versi (opsyenal)</label>
-                                    <input
-                                        v-model="formVersion"
-                                        type="text"
-                                        placeholder="Contoh: v2"
-                                        class="block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                    >
+                                <div class="md:col-span-1">
+                                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Warna Tema Kad</label>
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            v-model="formCardColor"
+                                            type="color"
+                                            class="h-[38px] w-full max-w-[5rem] cursor-pointer rounded border border-slate-300 p-0 shadow-sm"
+                                        >
+                                        <span class="text-xs font-mono uppercase text-slate-500">{{ formCardColor || '#F8FAFC' }}</span>
+                                    </div>
                                 </div>
+
+                                <div class="md:col-span-3 mt-1">
+                                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Keterangan Borang</label>
+                                    <textarea
+                                        v-model="formDescription"
+                                        rows="2"
+                                        class="block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        placeholder="Contoh: Borang pendaftaran untuk bantuan permaidani surau dan infrastruktur"
+                                    ></textarea>
+                                </div>
+                                <!-- Versi borang dibuang mengikut permintaan -->
                             </div>
 
                             <div class="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-4">
@@ -718,13 +735,11 @@ const onCategoryKeyChange = () => {
 
         <Modal :show="showPublishPreview" max-width="2xl" @close="showPublishPreview = false">
             <div class="p-6">
-                <h3 class="text-lg font-semibold text-slate-900">Borang Berjaya Diterbitkan</h3>
-                <p class="mt-1 text-sm text-slate-600">Borang telah diterbitkan mengikut lifecycle baharu.</p>
-
-                <div class="mt-4 rounded-xl border border-slate-200 bg-slate-950 p-4">
-                    <pre class="max-h-96 overflow-auto text-xs leading-5 text-emerald-300">{{ publishedSchemaJson }}</pre>
+                <div class="flex flex-col items-center">
+                    <ApplicationLogo class="h-14 w-auto mb-4" />
+                    <h3 class="text-lg font-semibold text-slate-900">Borang Berjaya Diterbitkan</h3>
+                    <p class="mt-1 text-sm text-slate-600">Borang telah diterbitkan mengikut lifecycle baharu.</p>
                 </div>
-
                 <div class="mt-5 flex justify-end">
                     <button
                         type="button"

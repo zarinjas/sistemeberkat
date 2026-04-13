@@ -268,12 +268,17 @@ const confirmDelete = (form) => {
                     <article
                         v-for="item in groupedSummary"
                         :key="item.categoryName"
-                        class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100"
+                        class="relative overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100 hover:shadow-md transition-shadow"
                     >
-                        <p class="text-sm font-medium text-slate-500">Kategori</p>
-                        <h3 class="mt-1 text-lg font-semibold text-slate-900">{{ item.categoryName }}</h3>
-                        <p class="mt-3 text-sm text-slate-600">Jumlah versi: <span class="font-semibold">{{ item.total }}</span></p>
-                        <p class="mt-1 text-sm text-slate-600">Versi aktif: <span class="font-semibold">{{ item.activeVersion }}</span></p>
+                        <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-slate-50"></div>
+                        <p class="relative z-10 text-xs font-bold uppercase tracking-wider text-indigo-500">Kategori Borang</p>
+                        <h3 class="relative z-10 mt-1 text-xl font-bold text-slate-900">{{ item.categoryName }}</h3>
+                        
+                        <div class="relative z-10 mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                            <p class="text-xs font-semibold text-slate-500">Jumlah Rekod: <span class="text-slate-700">{{ item.total }}</span></p>
+                            <span v-if="item.activeVersion !== '-'" class="px-2 py-1 text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md">Status: Aktif</span>
+                            <span v-else class="px-2 py-1 text-[10px] uppercase font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-md">Tiada Borang Aktif</span>
+                        </div>
                     </article>
                 </section>
 
@@ -348,96 +353,81 @@ const confirmDelete = (form) => {
                         Tiada borang dijumpai untuk kriteria carian ini.
                     </div>
 
-                    <div v-else class="overflow-x-auto">
+                    <div v-else class="overflow-x-auto rounded-xl border border-slate-200">
                         <table class="min-w-full divide-y divide-slate-200 text-sm">
                             <thead class="bg-slate-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">
-                                        <button type="button" class="inline-flex items-center gap-1 hover:text-slate-900" @click="toggleSort('category_key')">
-                                            Kategori <span class="text-xs">{{ sortIndicator('category_key') }}</span>
+                                    <th class="px-6 py-4 text-left font-semibold text-slate-600 w-1/4">
+                                        <button type="button" class="inline-flex items-center gap-1.5 uppercase text-xs tracking-wider hover:text-indigo-600 transition-colors" @click="toggleSort('category_key')">
+                                            Kategori <span class="text-[10px] rounded bg-white px-1 shadow-sm">{{ sortIndicator('category_key') }}</span>
                                         </button>
                                     </th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">
-                                        <button type="button" class="inline-flex items-center gap-1 hover:text-slate-900" @click="toggleSort('version')">
-                                            Versi <span class="text-xs">{{ sortIndicator('version') }}</span>
+                                    <th class="px-6 py-4 text-left font-semibold text-slate-600 uppercase text-xs tracking-wider">Penerbit</th>
+                                    <th class="px-6 py-4 text-left font-semibold text-slate-600">
+                                        <button type="button" class="inline-flex items-center gap-1.5 uppercase text-xs tracking-wider hover:text-indigo-600 transition-colors" @click="toggleSort('published_at')">
+                                            Tarikh <span class="text-[10px] rounded bg-white px-1 shadow-sm">{{ sortIndicator('published_at') }}</span>
                                         </button>
                                     </th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">
-                                        <button type="button" class="inline-flex items-center gap-1 hover:text-slate-900" @click="toggleSort('fields_count')">
-                                            Medan <span class="text-xs">{{ sortIndicator('fields_count') }}</span>
-                                        </button>
-                                    </th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">Penerbit</th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">
-                                        <button type="button" class="inline-flex items-center gap-1 hover:text-slate-900" @click="toggleSort('published_at')">
-                                            Tarikh <span class="text-xs">{{ sortIndicator('published_at') }}</span>
-                                        </button>
-                                    </th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">Status</th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">Tindakan</th>
+                                    <th class="px-6 py-4 text-left font-semibold text-slate-600 uppercase text-xs tracking-wider">Status</th>
+                                    <th class="px-6 py-4 text-left font-semibold text-slate-600 uppercase text-xs tracking-wider">Tindakan</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-200 bg-white text-slate-700">
-                                <tr v-for="form in sortedForms" :key="form.id">
-                                    <td class="whitespace-nowrap px-4 py-3">{{ form.category_name }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3">{{ form.version }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3">{{ form.fields_count }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3">
-                                        <div class="font-medium">{{ form.published_by || '-' }}</div>
-                                        <div class="text-xs text-slate-500">{{ form.published_by_email || '-' }}</div>
+                            <tbody class="divide-y divide-slate-100 bg-white text-slate-700">
+                                <tr v-for="form in sortedForms" :key="form.id" class="hover:bg-slate-50/50 transition-colors">
+                                    <td class="whitespace-nowrap px-6 py-4">
+                                        <div class="font-bold text-slate-900">{{ form.category_name }}</div>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3">{{ form.published_at ? new Date(form.published_at).toLocaleString() : '-' }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3">
-                                        <div class="flex flex-wrap items-center gap-1">
+                                    <td class="whitespace-nowrap px-6 py-4">
+                                        <div class="font-medium text-slate-800">{{ form.published_by || '-' }}</div>
+                                        <div class="mt-0.5 text-[11px] text-slate-500">{{ form.published_by_email || '-' }}</div>
+                                    </td>
+                                    <td class="whitespace-nowrap px-6 py-4">
+                                        <span class="text-xs text-slate-600 font-medium">{{ form.published_at ? new Date(form.published_at).toLocaleString() : '-' }}</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-6 py-4">
+                                        <div class="flex flex-col items-start gap-1.5">
                                             <span
-                                                class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                                                :class="form.lifecycle_status === 'published' ? 'bg-indigo-100 text-indigo-700' : form.lifecycle_status === 'draft' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'"
+                                                class="inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm"
+                                                :class="form.lifecycle_status === 'published' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : form.lifecycle_status === 'draft' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-600'"
                                             >
                                                 {{ form.lifecycle_status }}
                                             </span>
                                             <span
-                                                class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                                                :class="form.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'"
+                                                class="inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm"
+                                                :class="form.is_active ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-600'"
                                             >
                                                 {{ form.is_active ? 'aktif' : 'tidak aktif' }}
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3">
+                                    <td class="whitespace-nowrap px-6 py-4">
                                         <div class="flex flex-wrap items-center gap-2">
                                             <button
                                                 type="button"
-                                                class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                                class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-indigo-600"
                                                 @click="editForm(form.id)"
                                             >
-                                                Edit
+                                                Edit Borang
                                             </button>
                                             <button
                                                 type="button"
-                                                class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                                @click="openPreview(form)"
-                                            >
-                                                Lihat JSON
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                                class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm transition-all hover:bg-emerald-100"
                                                 @click="duplicateForm(form.id)"
                                             >
-                                                Duplicate → Draft
+                                                Salin (Draft)
                                             </button>
                                             <button
                                                 v-if="!form.is_active && form.lifecycle_status === 'published'"
                                                 type="button"
-                                                class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+                                                class="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm transition-all hover:bg-indigo-500"
                                                 @click="confirmActivate(form)"
                                             >
-                                                Jadikan Aktif
+                                                Aktifkan
                                             </button>
                                             <button
                                                 v-if="form.lifecycle_status === 'published'"
                                                 type="button"
-                                                class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+                                                class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 shadow-sm transition-all hover:bg-amber-100"
                                                 @click="confirmArchive(form)"
                                             >
                                                 Arkibkan
@@ -445,10 +435,10 @@ const confirmDelete = (form) => {
                                             <button
                                                 v-if="form.lifecycle_status === 'draft' || form.lifecycle_status === 'archived'"
                                                 type="button"
-                                                class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                                class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-rose-700 shadow-sm transition-all hover:bg-rose-100"
                                                 @click="confirmDelete(form)"
                                             >
-                                                Delete
+                                                Padam
                                             </button>
                                         </div>
                                     </td>

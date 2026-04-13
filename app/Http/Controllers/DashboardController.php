@@ -6,6 +6,7 @@ use App\Models\AidApplication;
 use App\Models\DashboardPoster;
 use App\Models\FormSchema;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,7 +17,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        if ($user?->isAdmin()) {
+        if ($user?->isAdmin() || $user?->isSuperAdmin()) {
             $pendingStatuses = [
                 AidApplication::STATUS_SUBMITTED,
                 AidApplication::STATUS_UNDER_REVIEW,
@@ -64,9 +65,13 @@ class DashboardController extends Controller
 
             $generalQueue = AidApplication::query()
                 ->with('user:id,name')
-                ->whereIn('status', $pendingStatuses)
-                ->orderByDesc('priority_score')
-                ->orderByDesc('submitted_at')
+                ->whereIn('status', [
+                    'pending_approval',
+                    AidApplication::STATUS_SUBMITTED,
+                    AidApplication::STATUS_UNDER_REVIEW,
+                    AidApplication::STATUS_APPROVED,
+                ])
+                ->orderBy('created_at', 'asc')
                 ->take(20)
                 ->get()
                 ->map(fn (AidApplication $application) => [
@@ -75,7 +80,7 @@ class DashboardController extends Controller
                     'applicantName' => $application->user?->name ?: 'Tidak diketahui',
                     'category' => $this->mapCategory($application),
                     'submittedAt' => ($application->submitted_at ?: $application->created_at)->format('d M Y'),
-                    'status' => $application->status === AidApplication::STATUS_UNDER_REVIEW ? 'Reviewing' : 'Pending',
+                    'status' => $application->status === AidApplication::STATUS_APPROVED ? AidApplication::STATUS_APPROVED : 'pending_approval',
                 ])
                 ->values();
 
@@ -130,13 +135,30 @@ class DashboardController extends Controller
 
         $dashboardPosters = DashboardPoster::query()
             ->where('is_active', true)
-            ->orderBy('sort_order')
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (DashboardPoster $poster) => [
                 'id' => $poster->id,
                 'title' => $poster->title,
+                'aspect_ratio' => $poster->aspect_ratio ?: '1:1',
                 'image_url' => asset('storage/'.$poster->image_path),
+            ])
+            ->values();
+
+        $announcements = $user->notifications()
+            ->latest()
+            ->take(6)
+            ->get()
+            ->map(fn ($notification) => [
+                'id' => $notification->id,
+                'subject' => data_get($notification->data, 'subject', 'Notifikasi BERKAT'),
+                'message' => data_get($notification->data, 'message', '-'),
+                'reference_no' => data_get($notification->data, 'reference_no'),
+                'status' => data_get($notification->data, 'status'),
+                'image_url' => data_get($notification->data, 'image_url'),
+                'created_at' => optional($notification->created_at)->format('d M Y H:i') ?: '-',
+                'is_read' => (bool) $notification->read_at,
+                'read_at' => $notification->read_at,
             ])
             ->values();
 
@@ -147,7 +169,34 @@ class DashboardController extends Controller
             'applications' => $applications,
             'availableForms' => $availableForms,
             'dashboardPosters' => $dashboardPosters,
+            'announcements' => $announcements,
+            'unreadAnnouncementsCount' => $user->unreadNotifications()->count(),
         ]);
+    }
+
+    public function markAnnouncementRead(Request $request, string $notificationId): RedirectResponse
+    {
+        $notification = $request->user()
+            ->notifications()
+            ->where('id', $notificationId)
+            ->first();
+
+        if (! $notification) {
+            return back()->with('error', 'Notifikasi tidak dijumpai.');
+        }
+
+        if (! $notification->read_at) {
+            $notification->markAsRead();
+        }
+
+        return back()->with('success', 'Notifikasi ditanda sebagai dibaca.');
+    }
+
+    public function markAllAnnouncementsRead(Request $request): RedirectResponse
+    {
+        $request->user()->unreadNotifications->markAsRead();
+
+        return back()->with('success', 'Semua notifikasi berjaya ditanda sebagai dibaca.');
     }
 
     public function membershipCard(Request $request): Response

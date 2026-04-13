@@ -79,10 +79,12 @@ class AdminFormBuilderController extends Controller
         $schemaData = [
             'category_key' => $validated['category_key'],
             'category_name' => $validated['category_name'],
+            'card_color' => $validated['card_color'] ?? null,
             'version' => $validated['version'] ?? $this->nextVersion($validated['category_key']),
             'schema_json' => [
                 'category_key' => $validated['category_key'],
                 'category_name' => $validated['category_name'],
+                'description' => $validated['description'] ?? null,
                 'version' => $validated['version'] ?? $this->nextVersion($validated['category_key']),
                 'fields' => $validated['fields'],
             ],
@@ -125,6 +127,7 @@ class AdminFormBuilderController extends Controller
             'schema_json' => [
                 'category_key' => $validated['category_key'],
                 'category_name' => $validated['category_name'],
+                'description' => $validated['description'] ?? null,
                 'version' => $version,
                 'fields' => $validated['fields'],
             ],
@@ -343,6 +346,8 @@ class AdminFormBuilderController extends Controller
         return $request->validate([
             'category_key' => ['required', 'string', 'max:50', 'regex:/^[a-z0-9_-]+$/'],
             'category_name' => ['required', 'string', 'max:120'],
+            'card_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'description' => ['nullable', 'string', 'max:500'],
             'version' => ['nullable', 'string', 'max:20'],
             'fields' => ['required', 'array', 'min:1'],
             'fields.*.order' => ['required', 'integer', 'min:1'],

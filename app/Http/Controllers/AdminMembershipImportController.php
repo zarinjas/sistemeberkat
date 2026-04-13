@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MemberOperationAudit;
 use App\Models\User;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Http\RedirectResponse;
@@ -23,8 +24,12 @@ class AdminMembershipImportController extends Controller
         'state',
     ];
 
-    public function downloadTemplate(): HttpResponse
+    public function downloadTemplate(Request $request): HttpResponse
     {
+        if (! $request->user()?->isSuperAdmin()) {
+            abort(403, 'Hanya superadmin dibenarkan untuk muat turun template import.');
+        }
+
         $filename = 'template-membership-import.csv';
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -58,6 +63,10 @@ class AdminMembershipImportController extends Controller
 
     public function import(Request $request): RedirectResponse
     {
+        if (! $request->user()?->isSuperAdmin()) {
+            abort(403, 'Hanya superadmin dibenarkan untuk import ahli.');
+        }
+
         $request->validate([
             'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
@@ -171,6 +180,20 @@ class AdminMembershipImportController extends Controller
         }
 
         fclose($handle);
+
+        MemberOperationAudit::create([
+            'actor_user_id' => (int) $request->user()->id,
+            'member_user_id' => null,
+            'action' => 'member_csv_import',
+            'context' => [
+                'filename' => $file?->getClientOriginalName(),
+                'processed' => (int) ($summary['processed'] ?? 0),
+                'created' => (int) ($summary['created'] ?? 0),
+                'updated' => (int) ($summary['updated'] ?? 0),
+                'skipped' => (int) ($summary['skipped'] ?? 0),
+                'error_count' => count($summary['errors'] ?? []),
+            ],
+        ]);
 
         return back()
             ->with('success', 'Import CSV ahli selesai diproses.')

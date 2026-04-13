@@ -75,6 +75,11 @@ class ReportingController extends Controller
                     $request->date('to_date')->endOfDay(),
                 ])
             )
+            // Filter by admin's branch if they have one assigned
+            ->when(
+                $request->user()->branch,
+                fn ($query) => $query->whereHas('user', fn ($userQuery) => $userQuery->where('branch', $request->user()->branch))
+            )
             ->get(['id', 'user_id', 'status', 'requested_amount', 'category_tags', 'created_at']);
 
         if ($request->filled('branch')) {

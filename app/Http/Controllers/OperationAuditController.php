@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ApplicationStatusHistory;
+use App\Models\MemberOperationAudit;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -11,7 +12,12 @@ class OperationAuditController extends Controller
 {
     public function index(Request $request): Response
     {
+        if (! $request->user()?->isSuperAdmin()) {
+            abort(403, 'Hanya superadmin boleh akses Audit Operasi.');
+        }
+
         $keyword = $request->string('q')->value();
+        $memberAction = trim((string) $request->string('member_action')->value());
 
         $logs = ApplicationStatusHistory::query()
             ->with([
@@ -42,10 +48,40 @@ class OperationAuditController extends Controller
                 'changed_at' => optional($history->changed_at)->format('d M Y H:i:s') ?: '-',
             ]);
 
+        $memberLogs = MemberOperationAudit::query()
+            ->with([
+                'actor:id,name,email',
+                'member:id,name,email,member_no',
+            ])
+            ->when($memberAction !== '', fn ($query) => $query->where('action', $memberAction))
+            ->when($keyword, function ($query, $keyword) {
+                $query->where(function ($inner) use ($keyword) {
+                    $inner->where('action', 'like', "%{$keyword}%")
+                        ->orWhereHas('actor', fn ($user) => $user->where('name', 'like', "%{$keyword}%"))
+                        ->orWhereHas('member', fn ($member) => $member
+                            ->where('name', 'like', "%{$keyword}%")
+                            ->orWhere('member_no', 'like', "%{$keyword}%"));
+                });
+            })
+            ->latest()
+            ->paginate(25, ['*'], 'member_page')
+            ->withQueryString()
+            ->through(fn (MemberOperationAudit $audit) => [
+                'id' => $audit->id,
+                'action' => $audit->action,
+                'actor_name' => $audit->actor?->name ?: 'Sistem',
+                'member_name' => $audit->member?->name ?: '-',
+                'member_no' => $audit->member?->member_no ?: '-',
+                'context' => $audit->context ?: [],
+                'created_at' => optional($audit->created_at)->format('d M Y H:i:s') ?: '-',
+            ]);
+
         return Inertia::render('System/Audit', [
             'logs' => $logs,
+            'memberLogs' => $memberLogs,
             'filters' => [
                 'q' => $keyword,
+                'member_action' => $memberAction,
             ],
         ]);
     }

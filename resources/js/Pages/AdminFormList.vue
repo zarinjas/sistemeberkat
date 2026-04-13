@@ -38,7 +38,7 @@ const deleteForm = (formId) => {
                     :href="route('forms.builder')"
                     class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
                 >
-                    + Bina Borang Baru
+                    + Pembina Borang
                 </Link>
             </div>
         </template>
@@ -65,19 +65,15 @@ const deleteForm = (formId) => {
                                 <tr>
                                     <th class="px-4 py-3 text-left font-semibold text-slate-600">Tajuk</th>
                                     <th class="px-4 py-3 text-left font-semibold text-slate-600">Kod</th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">Versi</th>
-                                    <th class="px-4 py-3 text-left font-semibold text-slate-600">Medan</th>
                                     <th class="px-4 py-3 text-left font-semibold text-slate-600">Tarikh Diterbitkan</th>
                                     <th class="px-4 py-3 text-left font-semibold text-slate-600">Status</th>
                                     <th class="px-4 py-3 text-left font-semibold text-slate-600">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-200 bg-white text-slate-700">
-                                <tr v-for="form in props.forms" :key="form.id">
+                                <tr v-for="form in [...props.forms].sort((a, b) => new Date(b.published_at) - new Date(a.published_at) || b.id - a.id)" :key="form.id">
                                     <td class="whitespace-nowrap px-4 py-3 font-medium">{{ form.category_name }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-xs text-slate-500">{{ form.category_key }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3">{{ form.version }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3">{{ form.fields_count }}</td>
                                     <td class="whitespace-nowrap px-4 py-3">
                                         {{
                                             form.published_at ? new Date(form.published_at).toLocaleString('ms-MY') : '-'

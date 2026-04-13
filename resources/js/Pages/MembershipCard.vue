@@ -28,7 +28,7 @@ const member = computed(() => ({
     avatarUrl: props.user.profile_photo_url ||
         'https://via.placeholder.com/96x96.png?text=' +
         encodeURIComponent((props.user.name || 'A').charAt(0)),
-    qrData: `MECARD:N:${props.user.name || ''};TEL:${props.user.phone || ''};EMAIL:${props.user.email || ''};NOTE:Member ID ${props.user.member_no || ''};;`,
+    qrData: route('membership-card'),
 }));
 </script>
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AidApplication;
 use App\Models\ApplicationStatusHistory;
+use App\Models\NotificationBlast;
 use App\Notifications\ApplicationStatusNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,20 +15,60 @@ class AdminApprovalController extends Controller
 {
     public function index(Request $request): Response
     {
-        $applications = AidApplication::query()
+        $status = $request->string('status')->value();
+        $category = $request->string('category')->value();
+        $search = trim((string) $request->string('q')->value());
+        $sort = $request->string('sort')->value() ?: 'newest';
+        $scope = $request->string('scope')->value() ?: 'queue';
+
+        $applicationsQuery = AidApplication::query()
             ->with('user')
-            ->when($request->string('status')->value(), fn ($query, $status) => $query->where('status', $status))
             ->when(
-                $request->string('category')->value(),
-                fn ($query, $category) => $query->whereJsonContains('category_tags', $category)
+                $scope !== 'all' && $status === '',
+                fn ($query) => $query->whereIn('status', [
+                    AidApplication::STATUS_SUBMITTED,
+                    AidApplication::STATUS_UNDER_REVIEW,
+                    AidApplication::STATUS_KUIRI,
+                ])
             )
-            ->orderByDesc('priority_score')
-            ->orderByDesc('submitted_at')
-            ->latest()
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->when(
+                $category !== '',
+                fn ($query) => $query->whereJsonContains('category_tags', $category)
+            )
+            ->when(
+                $search !== '',
+                fn ($query) => $query->where(function ($inner) use ($search) {
+                    $inner->where('reference_no', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('member_no', 'like', "%{$search}%"));
+                })
+            );
+
+        match ($sort) {
+            'newest' => $applicationsQuery->orderByDesc('created_at'),
+            'oldest' => $applicationsQuery->orderBy('created_at'),
+            'applicant_az' => $applicationsQuery->orderByRaw("LOWER(COALESCE((SELECT users.name FROM users WHERE users.id = aid_applications.user_id LIMIT 1), '')) ASC"),
+            'applicant_za' => $applicationsQuery->orderByRaw("LOWER(COALESCE((SELECT users.name FROM users WHERE users.id = aid_applications.user_id LIMIT 1), '')) DESC"),
+            default => $applicationsQuery->orderByDesc('created_at'),
+        };
+
+        $applications = $applicationsQuery
             ->paginate(15)
             ->withQueryString();
 
+        // Get categories from visible applications only
         $allCategories = AidApplication::query()
+            ->when(
+                $scope !== 'all' && $status === '',
+                fn ($query) => $query->whereIn('status', [
+                    AidApplication::STATUS_SUBMITTED,
+                    AidApplication::STATUS_UNDER_REVIEW,
+                    AidApplication::STATUS_KUIRI,
+                ])
+            )
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->whereNotNull('category_tags')
             ->distinct()
             ->pluck('category_tags')
@@ -40,8 +81,11 @@ class AdminApprovalController extends Controller
         return Inertia::render('Approvals/Index', [
             'applications' => $applications,
             'filters' => [
-                'status' => $request->string('status')->value(),
-                'category' => $request->string('category')->value(),
+                'status' => $status,
+                'category' => $category,
+                'q' => $search,
+                'sort' => $sort,
+                'scope' => $scope,
             ],
             'categories' => $allCategories,
         ]);
@@ -53,6 +97,7 @@ class AdminApprovalController extends Controller
 
         return Inertia::render('Approvals/Show', [
             'application' => $application,
+            'submittedForm' => $application->buildFormPreview(),
             'statuses' => [
                 AidApplication::STATUS_UNDER_REVIEW,
                 AidApplication::STATUS_KUIRI,
@@ -67,10 +112,25 @@ class AdminApprovalController extends Controller
         $validated = $request->validate([
             'status' => ['required', 'in:under_review,kuiri,approved,rejected'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'send_notification' => ['nullable', 'boolean'],
+            'notification_subject' => ['nullable', 'string', 'max:150'],
+            'notification_message' => ['nullable', 'string', 'max:2000'],
+            'notification_channels' => ['nullable', 'array', 'min:1'],
+            'notification_channels.*' => ['in:mail,database'],
         ]);
 
         $from = $application->status;
         $to = $validated['status'];
+
+        // Non-superadmin reviewers cannot flip final decisions directly.
+        if (! $request->user()?->isSuperAdmin()) {
+            $isApprovedToRejected = $from === AidApplication::STATUS_APPROVED && $to === AidApplication::STATUS_REJECTED;
+            $isRejectedToApproved = $from === AidApplication::STATUS_REJECTED && $to === AidApplication::STATUS_APPROVED;
+
+            if ($isApprovedToRejected || $isRejectedToApproved) {
+                return back()->with('error', 'Pegawai penyemak tidak dibenarkan menukar keputusan lulus kepada tolak atau sebaliknya. Tindakan ini hanya untuk superadmin.');
+            }
+        }
 
         $application->update([
             'status' => $to,
@@ -91,14 +151,39 @@ class AdminApprovalController extends Controller
             'changed_at' => now(),
         ]);
 
-        if ($application->user) {
+        $shouldSendNotification = (bool) ($validated['send_notification'] ?? true);
+
+        if ($application->user && $shouldSendNotification) {
             $template = $this->statusEmailTemplate($application, $to, $validated['notes'] ?? null);
+            $channels = $this->resolveChannels($validated['notification_channels'] ?? null);
+            $subject = trim((string) ($validated['notification_subject'] ?? '')) ?: $template['subject'];
+            $message = trim((string) ($validated['notification_message'] ?? '')) ?: $template['message'];
+
             $application->user->notify(new ApplicationStatusNotification(
                 application: $application,
-                subject: $template['subject'],
-                message: $template['message'],
+                subject: $subject,
+                message: $message,
                 details: $template['details'],
+                channels: $channels,
             ));
+
+            NotificationBlast::create([
+                'sent_by_user_id' => $request->user()->id,
+                'target_type' => 'single',
+                'target_meta' => [
+                    'notification_kind' => 'application',
+                    'source_module' => 'approvals',
+                    'application_id' => $application->id,
+                    'reference_no' => $application->reference_no,
+                    'status_to' => $to,
+                ],
+                'subject' => $subject,
+                'message' => $message,
+                'channels' => $channels,
+                'recipient_count' => 1,
+                'recipient_user_ids' => [(int) $application->user->id],
+                'sent_at' => now(),
+            ]);
         }
 
         return back()->with('success', 'Application status updated.');
@@ -147,5 +232,16 @@ class AdminApprovalController extends Controller
                 $notes ? 'Catatan Pegawai: '.$notes : null,
             ]),
         ];
+    }
+
+    private function resolveChannels(?array $channels): array
+    {
+        $resolved = collect($channels ?: ['mail', 'database'])
+            ->filter(fn (string $channel) => in_array($channel, ['mail', 'database'], true))
+            ->unique()
+            ->values()
+            ->all();
+
+        return count($resolved) ? $resolved : ['database'];
     }
 }

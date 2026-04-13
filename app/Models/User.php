@@ -57,6 +57,16 @@ class User extends Authenticatable
         return $this->hasMany(AidApplication::class);
     }
 
+    public function roleChangeAudits(): HasMany
+    {
+        return $this->hasMany(RoleChangeAudit::class, 'user_id');
+    }
+
+    public function roleChangesInitiated(): HasMany
+    {
+        return $this->hasMany(RoleChangeAudit::class, 'changed_by_user_id');
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
@@ -64,16 +74,7 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        if ($this->role === 'superadmin') {
-            return true;
-        }
-
-        $superAdminEmails = array_filter(array_map(
-            static fn ($email) => strtolower(trim((string) $email)),
-            str_getcsv((string) env('SUPERADMIN_EMAILS', 'superadmin@berkat.com')),
-        ));
-
-        return in_array(strtolower((string) $this->email), $superAdminEmails, true);
+        return $this->role === 'superadmin';
     }
 
     public function isApplicant(): bool

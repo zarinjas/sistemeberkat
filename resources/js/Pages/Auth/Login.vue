@@ -326,7 +326,19 @@ const quickLogin = (role) => {
                             <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                             <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                         </svg>
-                        👤 Pemohon (Applicant)
+                        <svg
+                            v-else
+                            class="mr-2 h-5 w-5 text-white/90"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Pemohon (Applicant)
                     </button>
 
                     <button
@@ -345,7 +357,20 @@ const quickLogin = (role) => {
                             <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                             <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                         </svg>
-                        🧾 Pegawai Penyemak (Reviewer/Agent)
+                        <svg
+                            v-else
+                            class="mr-2 h-5 w-5 text-white/90"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H6.75A2.25 2.25 0 004.5 4.5v15A2.25 2.25 0 006.75 21.75h10.5A2.25 2.25 0 0019.5 19.5v-5.25z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 2.25v4.875c0 .621.504 1.125 1.125 1.125H19.5M8.25 13.5h7.5m-7.5 3h4.5" />
+                        </svg>
+                        Pegawai Penyemak (Reviewer/Agent)
                     </button>
 
                     <button
@@ -364,7 +389,19 @@ const quickLogin = (role) => {
                             <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                             <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                         </svg>
-                        🛠️ Superadmin IT (System Admin)
+                        <svg
+                            v-else
+                            class="mr-2 h-5 w-5 text-white/90"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.121 2.121 0 0020.25 18l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-6.837m6.837-6.837a2.548 2.548 0 013.586 3.586l-3.863 3.863m-6.837 6.837L9.879 9.88m0 0a2.548 2.548 0 00-3.586-3.586L2.43 10.157a2.548 2.548 0 003.586 3.586L9.88 9.88z" />
+                        </svg>
+                        Superadmin IT (System Admin)
                     </button>
                 </div>
             </div>

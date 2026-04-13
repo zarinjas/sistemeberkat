@@ -19,6 +19,10 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    showHeader: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const fallbackSchemas = {
@@ -222,39 +226,36 @@ const normalizeAdminSchema = (schema) => {
     });
 
     const categoryKey = schema?.category_key || 'default';
-    const documentFields = sections.dokumen.length > 0
-        ? sections.dokumen
-        : [
-            {
-                id: 'dokumen_sokongan_tambahan',
-                name: 'dokumen_sokongan_tambahan',
-                type: 'file',
-                label: 'Dokumen Sokongan (Opsyenal)',
-                required: false,
-                accept: '.pdf,.jpg,.jpeg,.png',
-            },
-        ];
+    const builtSections = [
+        {
+            key: 'maklumat',
+            title: 'Maklumat Permohonan',
+            fields: sections.maklumat,
+        },
+        {
+            key: 'dokumen',
+            title: 'Dokumen Sokongan',
+            fields: sections.dokumen,
+        },
+        {
+            key: 'pengesahan',
+            title: 'Pengesahan & Syarat',
+            fields: sections.pengesahan,
+        },
+    ].filter((section) => Array.isArray(section.fields) && section.fields.length > 0);
 
     return {
         key: categoryKey,
         label: schema?.category_name || categoryKey,
-        sections: [
-            {
-                key: 'maklumat',
-                title: 'Maklumat Permohonan',
-                fields: sections.maklumat,
-            },
-            {
-                key: 'dokumen',
-                title: 'Dokumen Sokongan',
-                fields: documentFields,
-            },
-            {
-                key: 'pengesahan',
-                title: 'Pengesahan & Syarat',
-                fields: sections.pengesahan,
-            },
-        ],
+        sections: builtSections.length
+            ? builtSections
+            : [
+                {
+                    key: 'maklumat',
+                    title: 'Maklumat Permohonan',
+                    fields: [],
+                },
+            ],
     };
 };
 
@@ -522,9 +523,9 @@ defineExpose({
 
 <template>
     <div class="mx-auto w-full max-w-5xl space-y-6">
-        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <div v-if="showHeader || !singleSchemaMode" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
+                <div v-if="showHeader">
                     <h2 class="text-xl font-semibold text-slate-900">Dynamic Application Form Engine</h2>
                     <p class="mt-1 text-sm text-slate-500">Satu komponen, pelbagai struktur borang mengikut kategori bantuan.</p>
                 </div>
@@ -562,7 +563,7 @@ defineExpose({
                         </div>
 
                         <template v-else>
-                            <label :for="field.name || field.id" class="block text-sm font-medium text-slate-700">
+                            <label v-if="field.type !== 'checkbox'" :for="field.name || field.id" class="block text-sm font-medium text-slate-700">
                                 {{ field.label }}
                                 <span v-if="field.required" class="text-rose-500">*</span>
                             </label>
@@ -599,7 +600,6 @@ defineExpose({
                             ></textarea>
 
                             <div v-else-if="field.type === 'radio'" class="space-y-2">
-                                <p class="text-sm font-medium text-slate-700">{{ field.label }}</p>
                                 <label
                                     v-for="(option, index) in getFieldOptions(field)"
                                     :key="`${field.name || field.id}-${index}`"

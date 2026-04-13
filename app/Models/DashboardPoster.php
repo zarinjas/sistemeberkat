@@ -9,6 +9,7 @@ class DashboardPoster extends Model
     protected $fillable = [
         'title',
         'image_path',
+        'aspect_ratio',
         'is_active',
         'sort_order',
         'uploaded_by',

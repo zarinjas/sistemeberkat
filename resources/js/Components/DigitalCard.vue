@@ -58,11 +58,14 @@ watch(
 <template>
     <div class="w-full space-y-4">
         <div class="mx-auto max-w-sm md:max-w-4xl">
-            <div class="flex flex-col rounded-3xl bg-gradient-to-br from-slate-800 to-blue-900 p-6 text-white shadow-2xl md:flex-row md:p-8">
+            <div class="relative flex flex-col overflow-hidden rounded-3xl border border-indigo-200 bg-gradient-to-br from-indigo-600 via-sky-600 to-cyan-500 p-6 text-white shadow-2xl md:flex-row md:p-8">
+                <div class="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/20 blur-2xl" />
+                <div class="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-sky-300/30 blur-2xl" />
+
                 <div class="md:w-2/3 md:pr-8">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <div class="h-10 w-10 rounded-md bg-white p-1">
+                            <div class="h-10 w-10 rounded-md bg-white/90 p-1 ring-1 ring-white/30">
                                 <img
                                     v-if="card.logoUrl"
                                     :src="card.logoUrl"
@@ -73,7 +76,7 @@ watch(
                                     LOGO
                                 </div>
                             </div>
-                            <p class="text-sm font-semibold">
+                            <p class="text-sm font-semibold tracking-wide">
                                 {{ card.brandName }}
                             </p>
                         </div>
@@ -82,7 +85,7 @@ watch(
                             <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70">
                                 {{ card.statusLabel }}
                             </p>
-                            <p class="text-sm font-bold text-emerald-300">
+                            <p class="text-sm font-bold text-white">
                                 {{ card.statusValue }}
                             </p>
                         </div>
@@ -105,7 +108,7 @@ watch(
                         />
                     </div>
 
-                    <div class="mt-5 border-t border-white/20 pt-4">
+                    <div class="mt-5 border-t border-white/25 pt-4">
                         <dl class="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <dt class="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70">
@@ -143,11 +146,16 @@ watch(
                                 </dd>
                             </div>
                         </dl>
+
+                        <div class="mt-4 rounded-xl bg-white/15 px-3 py-2">
+                            <p class="text-[10px] uppercase tracking-[0.14em] text-white/75">ID Ahli</p>
+                            <p class="mt-1 text-sm font-semibold tracking-wide">{{ card.membershipId }}</p>
+                        </div>
                     </div>
                 </div>
 
                 <div class="mt-6 flex items-center justify-center md:mt-0 md:w-1/3 md:border-l md:border-white/20 md:pl-8">
-                    <div class="rounded-xl bg-white p-3">
+                    <div class="rounded-xl bg-white p-3 shadow-md">
                         <img
                             v-if="qrImageUrl"
                             :src="qrImageUrl"
@@ -167,7 +175,7 @@ watch(
                 type="button"
                 class="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50"
             >
-                ⬇️ Muat Turun Kad (Simpan ke Telefon)
+                Muat Turun Kad (Simpan ke Telefon)
             </button>
         </div>
     </div>

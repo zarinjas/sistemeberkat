@@ -4,7 +4,11 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        @php($appName = config('app.name', 'e-BERKAT JANM'))
+        @php($pageTitle = trim($__env->yieldContent('title')))
+
+        <title inertia>{{ $pageTitle !== '' ? $pageTitle.' | '.$appName : $appName }}</title>
+        <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo-berkat.svg') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

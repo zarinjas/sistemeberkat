@@ -31,11 +31,19 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    announcements: {
+        type: Array,
+        default: () => [],
+    },
+    unreadAnnouncementsCount: {
+        type: Number,
+        default: 0,
+    },
 });
 
 const isAdmin = computed(() => {
     const userRole = page.props.auth?.user?.role;
-    return userRole === 'admin';
+    return userRole === 'admin' || userRole === 'superadmin';
 });
 
 const dashboardTitle = computed(() => isAdmin.value ? 'Command Center Pengurusan' : 'Dashboard Ahli');
@@ -51,5 +59,7 @@ const dashboardTitle = computed(() => isAdmin.value ? 'Command Center Pengurusan
         :applications="applications"
         :available-forms="availableForms"
         :dashboard-posters="dashboardPosters"
+        :announcements="announcements"
+        :unread-announcements-count="unreadAnnouncementsCount"
     />
 </template>

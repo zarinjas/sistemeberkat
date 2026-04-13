@@ -3,20 +3,18 @@
 namespace App\Notifications;
 
 use App\Models\AidApplication;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ApplicationStatusNotification extends Notification implements ShouldQueue
+class ApplicationStatusNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(
         private readonly AidApplication $application,
         private readonly string $subject,
         private readonly string $message,
         private readonly array $details = [],
+        private readonly array $channels = ['mail', 'database'],
+        private readonly ?string $imageUrl = null,
     ) {
     }
 
@@ -25,7 +23,11 @@ class ApplicationStatusNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return collect($this->channels)
+            ->filter(fn (string $channel) => in_array($channel, ['mail', 'database'], true))
+            ->when(! $notifiable?->email, fn ($channels) => $channels->reject(fn ($channel) => $channel === 'mail'))
+            ->values()
+            ->all();
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -41,8 +43,25 @@ class ApplicationStatusNotification extends Notification implements ShouldQueue
             $mailMessage->line((string) $detail);
         }
 
+        if ($this->imageUrl) {
+            $mailMessage->line('Lampiran imej: '.$this->imageUrl);
+        }
+
         return $mailMessage
             ->action('Lihat Dashboard', url('/dashboard'))
             ->line('Terima kasih kerana menggunakan sistem BERKAT.');
+    }
+
+    public function toArray(object $notifiable): array
+    {
+        return [
+            'subject' => $this->subject,
+            'message' => $this->message,
+            'reference_no' => $this->application->reference_no ?: 'APP-'.$this->application->id,
+            'status' => (string) $this->application->status,
+            'details' => $this->details,
+            'image_url' => $this->imageUrl,
+            'dashboard_url' => url('/dashboard'),
+        ];
     }
 }

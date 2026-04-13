@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response as ResponseFacade;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,56 +17,165 @@ class PaymentController extends Controller
 {
     public function index(Request $request): Response
     {
-        $currentUserId = $request->user()->id;
+        $user = $request->user();
+        $currentUserId = (int) $user->id;
+        $isSuperAdmin = (bool) $user?->isSuperAdmin();
+        $allowedStatuses = $isSuperAdmin
+            ? [
+                AidApplication::STATUS_SUBMITTED,
+                AidApplication::STATUS_UNDER_REVIEW,
+                AidApplication::STATUS_KUIRI,
+                AidApplication::STATUS_APPROVED,
+                AidApplication::STATUS_DISBURSED,
+                AidApplication::STATUS_REJECTED,
+            ]
+            : [
+                AidApplication::STATUS_APPROVED,
+                AidApplication::STATUS_DISBURSED,
+            ];
 
-        $applications = AidApplication::query()
+        $status = $request->string('status')->value();
+        $category = $request->string('category')->value();
+        $action = $request->string('action')->value();
+        $search = trim((string) $request->string('q')->value());
+        $urgentFirst = $request->boolean('urgent_first');
+
+        $applicationsQuery = AidApplication::query()
             ->with([
                 'user:id,name,email',
                 'paymentPreparedBy:id,name',
                 'paymentApprovedBy:id,name',
             ])
-            ->whereIn('status', [
-                AidApplication::STATUS_APPROVED,
-                AidApplication::STATUS_DISBURSED,
-            ])
-            ->orderByDesc('decided_at')
-            ->orderByDesc('updated_at')
-            ->paginate(15)
+            ->whereIn('status', $allowedStatuses)
+            ->when(
+                $status !== '' && in_array($status, $allowedStatuses, true),
+                fn ($query) => $query->where('status', $status)
+            )
+            ->when(
+                $category !== '',
+                fn ($query) => $query->whereJsonContains('category_tags', $category)
+            )
+            ->when(
+                $search !== '',
+                fn ($query) => $query->where(function ($inner) use ($search) {
+                    $inner->where('reference_no', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery->where('name', 'like', "%{$search}%"));
+                })
+            )
+            ->when(
+                $action === 'needs_action',
+                fn ($query) => $query->whereIn('status', [
+                    AidApplication::STATUS_SUBMITTED,
+                    AidApplication::STATUS_UNDER_REVIEW,
+                    AidApplication::STATUS_KUIRI,
+                    AidApplication::STATUS_APPROVED,
+                ])
+            )
+            ->when(
+                $action === 'ready_to_disburse',
+                fn ($query) => $query
+                    ->where('status', AidApplication::STATUS_APPROVED)
+                    ->whereNotNull('payment_prepared_at')
+                    ->where('payment_prepared_by_user_id', '!=', $currentUserId)
+            )
+            ->when(
+                $action === 'completed',
+                fn ($query) => $query->where('status', AidApplication::STATUS_DISBURSED)
+            );
+
+        if ($urgentFirst) {
+            $applicationsQuery
+                ->orderByRaw("CASE
+                    WHEN status = 'approved' AND payment_prepared_at IS NULL THEN 0
+                    WHEN status = 'approved' AND payment_prepared_at IS NOT NULL AND (payment_prepared_by_user_id IS NULL OR payment_prepared_by_user_id != {$currentUserId}) THEN 1
+                    WHEN status = 'under_review' THEN 2
+                    WHEN status = 'submitted' THEN 3
+                    WHEN status = 'kuiri' THEN 4
+                    WHEN status = 'disbursed' THEN 5
+                    WHEN status = 'rejected' THEN 6
+                    ELSE 7
+                END")
+                ->orderByDesc('updated_at');
+        } else {
+            $applicationsQuery
+                ->orderByRaw("CASE
+                    WHEN status = 'approved' THEN 0
+                    WHEN status = 'under_review' THEN 1
+                    WHEN status = 'submitted' THEN 2
+                    WHEN status = 'kuiri' THEN 3
+                    WHEN status = 'disbursed' THEN 4
+                    WHEN status = 'rejected' THEN 5
+                    ELSE 6
+                END")
+                ->orderByDesc('updated_at');
+        }
+
+        $applications = $applicationsQuery
+            ->paginate(20)
             ->withQueryString()
-            ->through(fn (AidApplication $application) => [
-                'id' => $application->id,
-                'reference_no' => $application->reference_no ?: 'APP-'.$application->id,
-                'applicant_name' => $application->user?->name ?: 'Tidak diketahui',
-                'applicant_email' => $application->user?->email,
-                'status' => $application->status,
-                'requested_amount' => $application->requested_amount,
-                'paid_amount' => $application->paid_amount,
-                'transaction_ref' => $application->transaction_ref,
-                'decided_at' => optional($application->decided_at)->format('d M Y H:i') ?: '-',
-                'paid_at' => optional($application->paid_at)->format('d M Y H:i') ?: '-',
-                'paid_at_input' => optional($application->paid_at)->format('Y-m-d\TH:i'),
-                'payment_prepared_at' => optional($application->payment_prepared_at)->format('d M Y H:i') ?: '-',
-                'payment_approved_at' => optional($application->payment_approved_at)->format('d M Y H:i') ?: '-',
-                'payment_prepared_by' => $application->paymentPreparedBy?->name,
-                'payment_approved_by' => $application->paymentApprovedBy?->name,
-                'is_prepared' => (bool) $application->payment_prepared_at,
-                'can_prepare' => $application->status === AidApplication::STATUS_APPROVED,
-                'can_disburse' => $application->status === AidApplication::STATUS_APPROVED
-                    && (bool) $application->payment_prepared_at
-                    && $application->payment_prepared_by_user_id !== $currentUserId,
-            ]);
+            ->through(fn (AidApplication $application) => $this->mapPaymentApplication($application, $isSuperAdmin, $currentUserId));
+
+        $categories = AidApplication::query()
+            ->whereIn('status', $allowedStatuses)
+            ->whereNotNull('category_tags')
+            ->pluck('category_tags')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
 
         return Inertia::render('Payments/Index', [
             'applications' => $applications,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+                'category' => $category,
+                'action' => $action,
+                'urgent_first' => $urgentFirst,
+            ],
+            'categories' => $categories,
+            'canManagePayments' => $isSuperAdmin,
+        ]);
+    }
+
+    public function show(Request $request, AidApplication $application): Response
+    {
+        $user = $request->user();
+        $isSuperAdmin = (bool) $user?->isSuperAdmin();
+
+        $application->load([
+            'user:id,name,email,branch',
+            'paymentPreparedBy:id,name',
+            'paymentApprovedBy:id,name',
+            'statusHistories.changedBy:id,name',
+        ]);
+
+        if (! $isSuperAdmin) {
+            if (! in_array($application->status, [AidApplication::STATUS_APPROVED, AidApplication::STATUS_DISBURSED], true)) {
+                abort(403, 'Akses hanya untuk rekod bayaran.');
+            }
+        }
+
+        return Inertia::render('Payments/Show', [
+            'application' => $this->mapPaymentApplication($application, $isSuperAdmin, (int) $user->id),
+            'canManagePayments' => $isSuperAdmin,
+            'submittedForm' => $application->buildFormPreview(),
         ]);
     }
 
     public function prepare(Request $request, AidApplication $application): RedirectResponse
     {
+        if (! $request->user()?->isSuperAdmin()) {
+            abort(403, 'Hanya superadmin boleh rekod transaksi bayaran.');
+        }
+
         $validated = $request->validate([
             'paid_amount' => ['required', 'numeric', 'min:0.01'],
             'transaction_ref' => ['required', 'string', 'max:100'],
             'paid_at' => ['required', 'date'],
+            'payment_receipt' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -73,10 +183,17 @@ class PaymentController extends Controller
             return back()->with('error', 'Hanya permohonan berstatus approved boleh disediakan untuk bayaran.');
         }
 
+        if ($application->payment_receipt_path && Storage::disk('public')->exists($application->payment_receipt_path)) {
+            Storage::disk('public')->delete($application->payment_receipt_path);
+        }
+
+        $receiptPath = $request->file('payment_receipt')->store('payment-receipts', 'public');
+
         $application->update([
             'paid_amount' => $validated['paid_amount'],
             'transaction_ref' => $validated['transaction_ref'],
             'paid_at' => $validated['paid_at'],
+            'payment_receipt_path' => $receiptPath,
             'payment_prepared_by_user_id' => $request->user()->id,
             'payment_prepared_at' => now(),
             'payment_approved_by_user_id' => null,
@@ -98,10 +215,15 @@ class PaymentController extends Controller
 
     public function disburse(Request $request, AidApplication $application): RedirectResponse
     {
+        if (! $request->user()?->isSuperAdmin()) {
+            abort(403, 'Hanya superadmin boleh sahkan dan bayar.');
+        }
+
         $validated = $request->validate([
             'paid_amount' => ['required', 'numeric', 'min:0.01'],
             'transaction_ref' => ['required', 'string', 'max:100'],
             'paid_at' => ['required', 'date'],
+            'payment_receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -123,12 +245,22 @@ class PaymentController extends Controller
 
         $fromStatus = $application->status;
 
+        $receiptPath = $application->payment_receipt_path;
+        if ($request->hasFile('payment_receipt')) {
+            if ($receiptPath && Storage::disk('public')->exists($receiptPath)) {
+                Storage::disk('public')->delete($receiptPath);
+            }
+
+            $receiptPath = $request->file('payment_receipt')->store('payment-receipts', 'public');
+        }
+
         $application->update([
             'status' => AidApplication::STATUS_DISBURSED,
             'decided_at' => $application->decided_at ?: now(),
             'paid_amount' => $validated['paid_amount'],
             'transaction_ref' => $validated['transaction_ref'],
             'paid_at' => $validated['paid_at'],
+            'payment_receipt_path' => $receiptPath,
             'payment_approved_by_user_id' => $request->user()->id,
             'payment_approved_at' => now(),
         ]);
@@ -213,5 +345,57 @@ class PaymentController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv',
         ]);
+    }
+
+    private function mapPaymentApplication(AidApplication $application, bool $isSuperAdmin, int $currentUserId): array
+    {
+        return [
+            'id' => $application->id,
+            'reference_no' => $application->reference_no ?: 'APP-'.$application->id,
+            'applicant_name' => $application->user?->name ?: 'Tidak diketahui',
+            'applicant_email' => $application->user?->email,
+            'applicant_branch' => $application->user?->branch,
+            'status' => $application->status,
+            'category' => $this->mapCategory($application),
+            'requested_amount' => $application->requested_amount,
+            'paid_amount' => $application->paid_amount,
+            'transaction_ref' => $application->transaction_ref,
+            'payment_receipt_url' => $application->payment_receipt_path
+                ? asset('storage/'.$application->payment_receipt_path)
+                : null,
+            'decided_at' => optional($application->decided_at)->format('d M Y H:i') ?: '-',
+            'paid_at' => optional($application->paid_at)->format('d M Y H:i') ?: '-',
+            'paid_at_input' => optional($application->paid_at)->format('Y-m-d\TH:i'),
+            'payment_prepared_at' => optional($application->payment_prepared_at)->format('d M Y H:i') ?: '-',
+            'payment_approved_at' => optional($application->payment_approved_at)->format('d M Y H:i') ?: '-',
+            'payment_prepared_by' => $application->paymentPreparedBy?->name,
+            'payment_approved_by' => $application->paymentApprovedBy?->name,
+            'is_prepared' => (bool) $application->payment_prepared_at,
+            'can_prepare' => $isSuperAdmin && $application->status === AidApplication::STATUS_APPROVED,
+            'can_disburse' => $isSuperAdmin && $application->status === AidApplication::STATUS_APPROVED
+                && (bool) $application->payment_prepared_at
+                && $application->payment_prepared_by_user_id !== $currentUserId,
+            'status_histories' => $application->relationLoaded('statusHistories')
+                ? $application->statusHistories->take(8)->map(fn ($history) => [
+                    'id' => $history->id,
+                    'from_status' => $history->from_status,
+                    'to_status' => $history->to_status,
+                    'notes' => $history->notes,
+                    'changed_at' => optional($history->changed_at)->format('d M Y H:i') ?: '-',
+                    'changed_by' => $history->changedBy?->name ?: '-',
+                ])->values()->all()
+                : [],
+        ];
+    }
+
+    private function mapCategory(AidApplication $application): string
+    {
+        $firstTag = collect($application->category_tags ?: [])->first();
+
+        if (! $firstTag) {
+            return 'Umum';
+        }
+
+        return ucfirst((string) $firstTag);
     }
 }

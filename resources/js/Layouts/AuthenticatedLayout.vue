@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, reactive } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -8,21 +8,52 @@ import { Link, usePage } from '@inertiajs/vue3';
 const page = usePage();
 const showSidebar = ref(false);
 
+// State untuk semua menu yang ada children
+const expandedMenus = reactive({});
+
+const getMenuKey = (item) => item.menuKey ?? item.label;
+
+const isMenuExpanded = (item) => expandedMenus[getMenuKey(item)] ?? true;
+
+const toggleMenu = (item) => {
+    const menuKey = getMenuKey(item);
+    expandedMenus[menuKey] = !isMenuExpanded(item);
+};
+
 const user = computed(() => page.props.auth?.user ?? {});
 const userInitial = computed(() => (user.value.name || 'U').charAt(0).toUpperCase());
 
 const navigationItems = computed(() => {
+    const guidelineChildren = [
+        ...(user.value.is_superadmin ? [{ label: 'Urus Garis Panduan', href: route('guidelines.manage'), active: route().current('guidelines.manage') }] : []),
+        ...((page.props.guidelinesNav || []).map((item) => ({
+            label: item.title,
+            href: route('guidelines.show', item.slug),
+            active: route().current('guidelines.show', item.slug),
+        }))),
+    ];
+
+    const infoCenterChildren = [
+        { label: 'Infografik', href: route('info-center.infographics'), active: route().current('info-center.infographics') },
+        { label: 'Undang-Undang & Perlembagaan', href: route('info-center.legal'), active: route().current('info-center.legal') },
+        { label: 'Senarai AJK BERKAT', href: route('info-center.ajk'), active: route().current('info-center.ajk') },
+    ];
+
     const items = [
         { label: 'Dashboard', href: route('dashboard'), active: route().current('dashboard') },
-        { label: 'Pusat Info', href: route('info-center.index'), active: route().current('info-center.*') },
     ];
 
     if (user.value.role === 'applicant') {
         items.push(
+            { label: 'Permohonan', href: route('applications.index'), active: route().current('applications.*'), isPrimaryAction: true },
             { label: 'Kad Ahli', href: route('membership-card'), active: route().current('membership-card') },
-            { label: 'Permohonan', href: route('applications.index'), active: route().current('applications.*') },
         );
     }
+
+    items.push(
+        { label: 'Pusat Info', href: '#', active: route().current('info-center.*'), children: infoCenterChildren, menuKey: 'info-center' },
+        { label: 'Garis Panduan', href: '#', active: route().current('guidelines.*'), children: guidelineChildren, menuKey: 'guidelines' },
+    );
 
     if (user.value.role === 'admin' || user.value.is_superadmin) {
         items.push(
@@ -30,14 +61,20 @@ const navigationItems = computed(() => {
             { label: 'Bayaran', href: route('admin.payments.index'), active: route().current('admin.payments.*') },
             { label: 'Laporan', href: route('admin.reports.index'), active: route().current('admin.reports.*') },
             { label: 'Notifikasi', href: route('admin.notifications.index'), active: route().current('admin.notifications.*') },
-            { label: 'Pengurusan Sistem', href: route('admin.system.index'), active: route().current('admin.system.*') },
-            { label: 'Upload Poster Dashboard', href: `${route('info-center.index')}#poster-dashboard-section`, active: route().current('info-center.*') },
-            { label: 'Audit Operasi', href: route('admin.audit.index'), active: route().current('admin.audit.*') },
+            { label: 'Pengurusan Ahli BERKAT', href: route('admin.system.index'), active: route().current('admin.system.*') },
         );
 
         if (user.value.is_superadmin) {
             items.push(
-                { label: 'Form Builder', href: route('forms.builder'), active: route().current('admin.form-builder') || route().current('forms.builder') },
+                                { label: 'Pengurusan Borang',
+                                    menuKey: 'form-management',
+                                    active: route().current('admin.form-builder') || route().current('forms.builder') || route().current('forms.manage'),
+                                    children: [
+                                        { label: 'Senarai Borang', href: route('forms.manage'), active: route().current('forms.manage') },
+                                        { label: 'Pembina Borang', href: route('forms.builder'), active: route().current('admin.form-builder') || route().current('forms.builder') },
+                                    ]
+                                },
+                { label: 'Audit Operasi', href: route('admin.audit.index'), active: route().current('admin.audit.*') },
                 { label: 'Tetapan Hero', href: route('admin.hero-settings'), active: route().current('admin.hero-settings') },
             );
         }
@@ -80,16 +117,46 @@ const navigationItems = computed(() => {
                 </div>
 
                 <nav class="mt-2 space-y-1 px-2">
-                    <Link
-                        v-for="item in navigationItems"
-                        :key="item.label"
-                        :href="item.href"
-                        class="mx-2 block rounded-xl p-3 text-sm font-medium transition"
-                        :class="item.active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'"
-                        @click="showSidebar = false"
-                    >
-                        {{ item.label }}
-                    </Link>
+                    <template v-for="item in navigationItems" :key="item.label">
+                        <template v-if="item.children">
+                            <button
+                                type="button"
+                                class="mx-2 flex w-full items-center justify-between rounded-xl p-3 text-sm font-medium transition"
+                                :class="item.active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'"
+                                @click="toggleMenu(item)"
+                            >
+                                <span>{{ item.label }}</span>
+                                <span class="text-xs">{{ isMenuExpanded(item) ? '▾' : '▸' }}</span>
+                            </button>
+
+                            <div v-if="isMenuExpanded(item)" class="ml-5 mr-2 space-y-1">
+                                <Link
+                                    v-for="child in item.children"
+                                    :key="child.label"
+                                    :href="child.href"
+                                    class="block rounded-lg px-3 py-2 text-xs font-medium transition"
+                                    :class="child.active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'"
+                                    @click="showSidebar = false"
+                                >
+                                    {{ child.label }}
+                                </Link>
+                            </div>
+                        </template>
+
+                        <Link
+                            v-else
+                            :href="item.href"
+                            class="mx-2 block rounded-xl p-3 text-sm font-medium transition"
+                            :class="item.isPrimaryAction
+                                ? (item.active
+                                    ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200'
+                                    : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100')
+                                : (item.active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600')"
+                            @click="showSidebar = false"
+                        >
+                            {{ item.label }}
+                        </Link>
+                    </template>
                 </nav>
             </div>
         </aside>
