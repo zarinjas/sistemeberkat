@@ -44,6 +44,13 @@ echo "[6/8] Sync public assets to web root"
 mkdir -p "$PUBLIC_ROOT"
 cp -r "$PROJECT_ROOT/public/"* "$PUBLIC_ROOT/"
 
+if [[ -f "$PUBLIC_ROOT/index.php" ]]; then
+	sed -i \
+		-e "s#../vendor/autoload.php#../sistemeberkat/vendor/autoload.php#" \
+		-e "s#../bootstrap/app.php#../sistemeberkat/bootstrap/app.php#" \
+		"$PUBLIC_ROOT/index.php"
+fi
+
 echo "[7/8] Fix writable permissions"
 chmod -R 777 "$PROJECT_ROOT/storage" "$PROJECT_ROOT/bootstrap/cache" "$PROJECT_ROOT/database"
 
