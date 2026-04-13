@@ -2,7 +2,14 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+SOURCE_PATH="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE_PATH" ]; do
+	SOURCE_DIR="$(cd -P "$(dirname "$SOURCE_PATH")" && pwd)"
+	SOURCE_PATH="$(readlink "$SOURCE_PATH")"
+	[[ "$SOURCE_PATH" != /* ]] && SOURCE_PATH="$SOURCE_DIR/$SOURCE_PATH"
+done
+
+PROJECT_ROOT="$(cd -P "$(dirname "$SOURCE_PATH")" && pwd)"
 PUBLIC_ROOT="${PUBLIC_ROOT:-/home/sistemeberkat.my/public_html}"
 MAINTENANCE_ENABLED=0
 
