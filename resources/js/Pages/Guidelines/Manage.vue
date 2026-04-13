@@ -15,6 +15,7 @@ const editorRef = ref(null);
 const showPreviewModal = ref(false);
 const draggingPageId = ref(null);
 const localPages = ref([]);
+const editorMode = ref('visual');
 
 const createForm = useForm({
     title: '',
@@ -93,6 +94,14 @@ const updateDraftFromEditor = () => {
     editForm.draft_html = editorRef.value?.innerHTML || '';
 };
 
+const setEditorMode = (mode) => {
+    editorMode.value = mode;
+
+    if (mode === 'visual' && editorRef.value) {
+        editorRef.value.innerHTML = editForm.draft_html || '<p></p>';
+    }
+};
+
 const runEditorCommand = (command, value = null) => {
     document.execCommand(command, false, value);
     updateDraftFromEditor();
@@ -128,7 +137,9 @@ const saveDraft = () => {
         return;
     }
 
-    updateDraftFromEditor();
+    if (editorMode.value === 'visual') {
+        updateDraftFromEditor();
+    }
 
     editForm.patch(route('guidelines.update', selectedPage.value.id), {
         preserveScroll: true,
@@ -140,7 +151,9 @@ const publishPage = () => {
         return;
     }
 
-    updateDraftFromEditor();
+    if (editorMode.value === 'visual') {
+        updateDraftFromEditor();
+    }
 
     router.post(route('guidelines.publish', selectedPage.value.id), {
         title: editForm.title,
@@ -258,6 +271,10 @@ onBeforeUnmount(() => {
         </template>
 
         <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+            <section v-if="$page.props.flash?.success" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                {{ $page.props.flash.success }}
+            </section>
+
             <section class="surface-card">
                 <h3 class="section-title">Cipta Halaman Baru</h3>
                 <p class="section-subtitle">Tambah sub page baru. Ia akan muncul dalam menu Garis Panduan selepas diterbitkan.</p>
@@ -331,6 +348,13 @@ onBeforeUnmount(() => {
                 </aside>
 
                 <div class="surface-card" v-if="selectedPage">
+                    <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
+                            Status: {{ selectedPage.is_published ? 'Published' : 'Draft' }}
+                        </span>
+                        <span v-if="selectedPage.published_at">Tarikh publish: {{ selectedPage.published_at }}</span>
+                    </div>
+
                     <div class="mb-3 flex flex-wrap items-center gap-2">
                         <input
                             v-model="editForm.title"
@@ -342,6 +366,26 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div class="rounded-2xl border border-slate-200 bg-white">
+                        <div class="flex items-center gap-2 border-b border-slate-200 px-3 py-2">
+                            <button
+                                type="button"
+                                class="rounded-lg px-2.5 py-1 text-xs font-semibold"
+                                :class="editorMode === 'visual' ? 'bg-indigo-600 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'"
+                                @click="setEditorMode('visual')"
+                            >
+                                Visual
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-lg px-2.5 py-1 text-xs font-semibold"
+                                :class="editorMode === 'html' ? 'bg-indigo-600 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'"
+                                @click="setEditorMode('html')"
+                            >
+                                HTML
+                            </button>
+                            <p class="text-[11px] text-slate-500">Mode HTML sesuai untuk tampal kandungan lengkap termasuk jadual.</p>
+                        </div>
+
                         <div class="flex flex-wrap gap-2 border-b border-slate-200 p-3">
                             <button type="button" class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="runEditorCommand('bold')">Bold</button>
                             <button type="button" class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="runEditorCommand('italic')">Italic</button>
@@ -357,8 +401,17 @@ onBeforeUnmount(() => {
                             ref="editorRef"
                             contenteditable="true"
                             class="min-h-[320px] p-4 text-sm text-slate-700 focus:outline-none"
+                            v-show="editorMode === 'visual'"
                             @input="updateDraftFromEditor"
                         ></div>
+
+                        <textarea
+                            v-show="editorMode === 'html'"
+                            v-model="editForm.draft_html"
+                            rows="18"
+                            class="min-h-[320px] w-full border-0 p-4 font-mono text-xs text-slate-700 focus:outline-none focus:ring-0"
+                            placeholder="Tampal HTML di sini"
+                        ></textarea>
                     </div>
 
                     <p v-if="editForm.errors.title || editForm.errors.draft_html" class="mt-2 text-sm text-rose-600">
@@ -382,7 +435,7 @@ onBeforeUnmount(() => {
                             class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                             @click="saveDraft"
                         >
-                            Simpan Draf
+                            {{ editForm.processing ? 'Menyimpan...' : 'Simpan Draf' }}
                         </button>
                         <button
                             type="button"
@@ -390,7 +443,7 @@ onBeforeUnmount(() => {
                             class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                             @click="publishPage"
                         >
-                            Terbitkan
+                            {{ editForm.processing ? 'Menerbitkan...' : 'Terbitkan' }}
                         </button>
                         <button
                             v-if="selectedPage.is_published"
@@ -407,6 +460,11 @@ onBeforeUnmount(() => {
                         >
                             Padam
                         </button>
+                    </div>
+
+                    <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pratonton semasa</p>
+                        <div class="prose prose-sm max-w-none text-slate-700 lg:prose-base" v-html="editForm.draft_html || '<p></p>'" />
                     </div>
                 </div>
 

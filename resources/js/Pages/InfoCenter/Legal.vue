@@ -18,13 +18,13 @@ const props = defineProps({
 
 const page = usePage();
 const isSuperadmin = Boolean(page.props.auth?.user?.is_superadmin);
-
 const legalForm = useForm({
     title: props.legalContent?.title || 'Undang-Undang & Perlembagaan BERKAT',
     draft_html: props.legalContent?.draft_html || '',
 });
 
 const legalEditorRef = ref(null);
+const editorMode = ref('visual');
 
 const syncLegalEditor = () => {
     if (legalEditorRef.value) {
@@ -36,13 +36,23 @@ const updateLegalDraftFromEditor = () => {
     legalForm.draft_html = legalEditorRef.value?.innerHTML || '';
 };
 
+const setEditorMode = (mode) => {
+    editorMode.value = mode;
+
+    if (mode === 'visual' && legalEditorRef.value) {
+        legalEditorRef.value.innerHTML = legalForm.draft_html || '<p></p>';
+    }
+};
+
 const runEditorCommand = (command, value = null) => {
     document.execCommand(command, false, value);
     updateLegalDraftFromEditor();
 };
 
 const saveLegalDraft = () => {
-    updateLegalDraftFromEditor();
+    if (editorMode.value === 'visual') {
+        updateLegalDraftFromEditor();
+    }
 
     legalForm.post(route('info-center.legal.draft'), {
         preserveScroll: true,
@@ -50,7 +60,9 @@ const saveLegalDraft = () => {
 };
 
 const publishLegalContent = () => {
-    updateLegalDraftFromEditor();
+    if (editorMode.value === 'visual') {
+        updateLegalDraftFromEditor();
+    }
 
     legalForm.post(route('info-center.legal.publish'), {
         preserveScroll: true,
@@ -77,7 +89,19 @@ onMounted(() => {
             </section>
 
             <section class="surface-card">
+                <div v-if="$page.props.flash?.success" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                    {{ $page.props.flash.success }}
+                </div>
+
                 <div v-if="isSuperadmin" class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
+                            Published: {{ props.legalContent?.published_at ? 'Ya' : 'Belum' }}
+                        </span>
+                        <span v-if="props.legalContent?.published_at">Tarikh: {{ props.legalContent.published_at }}</span>
+                        <span v-if="props.legalContent?.published_by">Oleh: {{ props.legalContent.published_by }}</span>
+                    </div>
+
                     <input
                         v-model="legalForm.title"
                         type="text"
@@ -86,6 +110,26 @@ onMounted(() => {
                     >
 
                     <div class="rounded-2xl border border-slate-200 bg-white">
+                        <div class="flex items-center gap-2 border-b border-slate-200 px-3 py-2">
+                            <button
+                                type="button"
+                                class="rounded-lg px-2.5 py-1 text-xs font-semibold"
+                                :class="editorMode === 'visual' ? 'bg-indigo-600 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'"
+                                @click="setEditorMode('visual')"
+                            >
+                                Visual
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-lg px-2.5 py-1 text-xs font-semibold"
+                                :class="editorMode === 'html' ? 'bg-indigo-600 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'"
+                                @click="setEditorMode('html')"
+                            >
+                                HTML
+                            </button>
+                            <p class="text-[11px] text-slate-500">Mode HTML sesuai untuk tampal kandungan lengkap termasuk table.</p>
+                        </div>
+
                         <div class="flex flex-wrap gap-2 border-b border-slate-200 p-3">
                             <button type="button" class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="runEditorCommand('bold')">Bold</button>
                             <button type="button" class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" @click="runEditorCommand('italic')">Italic</button>
@@ -99,8 +143,17 @@ onMounted(() => {
                             ref="legalEditorRef"
                             contenteditable="true"
                             class="min-h-[280px] p-4 text-sm text-slate-700 focus:outline-none"
+                            v-show="editorMode === 'visual'"
                             @input="updateLegalDraftFromEditor"
                         ></div>
+
+                        <textarea
+                            v-show="editorMode === 'html'"
+                            v-model="legalForm.draft_html"
+                            rows="16"
+                            class="min-h-[280px] w-full border-0 p-4 font-mono text-xs text-slate-700 focus:outline-none focus:ring-0"
+                            placeholder="Tampal HTML di sini"
+                        ></textarea>
                     </div>
 
                     <p v-if="legalForm.errors.title || legalForm.errors.draft_html" class="text-sm text-rose-600">
@@ -114,7 +167,7 @@ onMounted(() => {
                             class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                             @click="saveLegalDraft"
                         >
-                            Simpan Draf
+                            {{ legalForm.processing ? 'Menyimpan...' : 'Simpan Draf' }}
                         </button>
                         <button
                             type="button"
@@ -122,8 +175,13 @@ onMounted(() => {
                             class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
                             @click="publishLegalContent"
                         >
-                            Terbitkan
+                            {{ legalForm.processing ? 'Menerbitkan...' : 'Terbitkan' }}
                         </button>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pratonton semasa</p>
+                        <div class="prose prose-sm max-w-none text-slate-700" v-html="legalForm.draft_html || '<p></p>'" />
                     </div>
                 </div>
 

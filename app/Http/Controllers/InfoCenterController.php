@@ -48,8 +48,10 @@ class InfoCenterController extends Controller
             'draft_html' => ['required', 'string'],
         ]);
 
+        $normalizedHtml = $this->normalizeRichHtml($validated['draft_html']);
+
         SiteSetting::set('info_legal_title', $validated['title']);
-        SiteSetting::set('info_legal_draft_html', $validated['draft_html']);
+        SiteSetting::set('info_legal_draft_html', $normalizedHtml);
         SiteSetting::set('info_legal_draft_updated_at', now()->toDateTimeString());
         SiteSetting::set('info_legal_draft_updated_by_name', $request->user()->name);
 
@@ -65,9 +67,11 @@ class InfoCenterController extends Controller
             'draft_html' => ['required', 'string'],
         ]);
 
+        $normalizedHtml = $this->normalizeRichHtml($validated['draft_html']);
+
         SiteSetting::set('info_legal_title', $validated['title']);
-        SiteSetting::set('info_legal_draft_html', $validated['draft_html']);
-        SiteSetting::set('info_legal_published_html', $validated['draft_html']);
+        SiteSetting::set('info_legal_draft_html', $normalizedHtml);
+        SiteSetting::set('info_legal_published_html', $normalizedHtml);
         SiteSetting::set('info_legal_published_at', now()->toDateTimeString());
         SiteSetting::set('info_legal_published_by_name', $request->user()->name);
 
@@ -154,8 +158,8 @@ class InfoCenterController extends Controller
     {
         return [
             'title' => SiteSetting::get('info_legal_title', 'Undang-Undang & Perlembagaan BERKAT'),
-            'draft_html' => SiteSetting::get('info_legal_draft_html', ''),
-            'published_html' => SiteSetting::get('info_legal_published_html', ''),
+            'draft_html' => $this->normalizeRichHtml(SiteSetting::get('info_legal_draft_html', '')),
+            'published_html' => $this->normalizeRichHtml(SiteSetting::get('info_legal_published_html', '')),
             'published_at' => SiteSetting::get('info_legal_published_at'),
             'published_by' => SiteSetting::get('info_legal_published_by_name', ''),
         ];
@@ -177,5 +181,22 @@ class InfoCenterController extends Controller
         }
 
         return asset('storage/'.$path);
+    }
+
+    private function normalizeRichHtml(?string $html): string
+    {
+        $value = trim((string) $html);
+
+        if ($value === '') {
+            return '';
+        }
+
+        if (str_contains($value, '&lt;') || str_contains($value, '&gt;')) {
+            $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        $value = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $value) ?? '';
+
+        return trim($value);
     }
 }

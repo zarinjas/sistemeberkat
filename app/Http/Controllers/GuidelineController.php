@@ -26,7 +26,7 @@ class GuidelineController extends Controller
                 'id' => $guideline->id,
                 'title' => $guideline->title,
                 'slug' => $guideline->slug,
-                'html' => $guideline->is_published ? ($guideline->published_html ?: $guideline->draft_html) : $guideline->draft_html,
+                'html' => $this->sanitizeHtml($guideline->is_published ? ($guideline->published_html ?: $guideline->draft_html) : $guideline->draft_html),
                 'is_published' => (bool) $guideline->is_published,
                 'published_at' => optional($guideline->published_at)?->format('d M Y, h:i A'),
                 'updated_at' => optional($guideline->updated_at)?->format('d M Y, h:i A'),
@@ -46,8 +46,8 @@ class GuidelineController extends Controller
                 'id' => $page->id,
                 'title' => $page->title,
                 'slug' => $page->slug,
-                'draft_html' => $page->draft_html ?: '',
-                'published_html' => $page->published_html ?: '',
+                'draft_html' => $this->sanitizeHtml($page->draft_html ?: ''),
+                'published_html' => $this->sanitizeHtml($page->published_html ?: ''),
                 'is_published' => (bool) $page->is_published,
                 'sort_order' => (int) $page->sort_order,
                 'published_at' => optional($page->published_at)?->format('d M Y, h:i A'),
@@ -198,7 +198,13 @@ class GuidelineController extends Controller
 
     private function sanitizeHtml(string $html): string
     {
-        $cleaned = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html) ?? '';
+        $value = trim($html);
+
+        if ($value !== '' && (str_contains($value, '&lt;') || str_contains($value, '&gt;'))) {
+            $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        $cleaned = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $value) ?? '';
 
         return trim($cleaned);
     }
