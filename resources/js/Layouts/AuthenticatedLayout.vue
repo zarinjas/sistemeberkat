@@ -59,6 +59,7 @@ const navigationItems = computed(() => {
         items.push(
             { label: 'Permohonan', href: route('applications.index'), active: route().current('applications.*'), isPrimaryAction: true },
             { label: 'Kad Ahli', href: route('membership-card'), active: route().current('membership-card') },
+            { label: 'Notifikasi', href: route('applicant.notifications.index'), active: route().current('applicant.notifications.*') },
         );
     }
 
@@ -157,7 +158,7 @@ const leaveSubmenu = (element) => {
                         </template>
                         <div>
                             <p class="text-lg font-bold tracking-tight text-slate-900">e-BERKAT</p>
-                            <p class="text-xs text-slate-500">Digital Membership</p>
+                            <p class="text-xs text-slate-500">Sistem Keahlian Berkat</p>
                         </div>
                     </Link>
                 </div>

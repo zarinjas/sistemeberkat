@@ -174,6 +174,30 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function notificationsIndex(Request $request): Response
+    {
+        $user = $request->user();
+
+        $notifications = $user->notifications()
+            ->latest()
+            ->paginate(20)
+            ->through(fn ($notification) => [
+                'id' => $notification->id,
+                'subject' => data_get($notification->data, 'subject', 'Notifikasi BERKAT'),
+                'message' => data_get($notification->data, 'message', '-'),
+                'reference_no' => data_get($notification->data, 'reference_no'),
+                'status' => data_get($notification->data, 'status'),
+                'image_url' => data_get($notification->data, 'image_url'),
+                'created_at' => optional($notification->created_at)->format('d M Y H:i') ?: '-',
+                'is_read' => (bool) $notification->read_at,
+            ]);
+
+        return Inertia::render('Applicant/Notifications', [
+            'notifications' => $notifications,
+            'unreadCount' => $user->unreadNotifications()->count(),
+        ]);
+    }
+
     public function markAnnouncementRead(Request $request, string $notificationId): RedirectResponse
     {
         $notification = $request->user()

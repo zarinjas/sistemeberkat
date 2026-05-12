@@ -56,6 +56,14 @@ class HandleInertiaRequests extends Middleware
                             ? asset('storage/'.$request->user()->profile_photo_path)
                             : null,
                         'branch' => $request->user()->branch,
+                        'nric' => $request->user()->nric,
+                        'address' => $request->user()->address,
+                        'postcode' => $request->user()->postcode,
+                        'city' => $request->user()->city,
+                        'gender' => $request->user()->gender,
+                        'marital_status' => $request->user()->marital_status,
+                        'member_no' => $request->user()->member_no,
+                        'employment_grade' => $request->user()->employment_grade,
                         'is_superadmin' => $request->user()->isSuperAdmin(),
                     ]
                     : null,

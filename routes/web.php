@@ -46,6 +46,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified', 'role:applicant'])->group(function () {
     Route::get('/membership-card', [DashboardController::class, 'membershipCard'])->name('membership-card');
+    Route::get('/notifications', [DashboardController::class, 'notificationsIndex'])->name('applicant.notifications.index');
     Route::post('/dashboard/announcements/read-all', [DashboardController::class, 'markAllAnnouncementsRead'])->name('applicant.announcements.read-all');
     Route::post('/dashboard/announcements/{notificationId}/read', [DashboardController::class, 'markAnnouncementRead'])->name('applicant.announcements.read');
     Route::get('/applications', [AidApplicationController::class, 'index'])->name('applications.index');

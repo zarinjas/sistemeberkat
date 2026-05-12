@@ -349,7 +349,8 @@ const form = useForm({
     category_tags: [],
 });
 
-const authUser = usePage().props.auth?.user ?? {};
+const page = usePage();
+const authUser = computed(() => page.props.auth?.user ?? {});
 
 const birthDateFromNric = (nric) => {
     const digits = String(nric ?? '').replace(/\D/g, '');
@@ -400,12 +401,24 @@ const PROFILE_FIELD_MAP = {
     employment_grade: 'employment_grade',
 };
 
-const resolveProfileValue = (fieldName) => {
-    const mapping = PROFILE_FIELD_MAP[fieldName];
-    if (!mapping) return null;
-    if (typeof mapping === 'function') return mapping(authUser) || null;
-    const val = authUser[mapping];
-    return val !== undefined && val !== null && val !== '' ? val : null;
+const labelToKey = (label) =>
+    String(label ?? '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, '_');
+
+const resolveProfileValue = (fieldName, fieldLabel) => {
+    const user = authUser.value;
+    const candidates = [fieldName, labelToKey(fieldLabel)].filter(Boolean);
+    for (const key of candidates) {
+        const mapping = PROFILE_FIELD_MAP[key];
+        if (!mapping) continue;
+        if (typeof mapping === 'function') return mapping(user) || null;
+        const val = user[mapping];
+        if (val !== undefined && val !== null && val !== '') return val;
+    }
+    return null;
 };
 
 const hasAppliedInitialData = ref(false);
@@ -463,18 +476,14 @@ const initializeFormFromSchema = () => {
                 return;
             }
 
-            dynamicPayload[fieldKey] = dynamicPayload[fieldKey] ?? defaultValue;
-        });
-    });
-
-    // Auto-fill dari profil untuk field yang masih kosong
-    Object.keys(dynamicPayload).forEach((fieldKey) => {
-        if (!dynamicPayload[fieldKey]) {
-            const profileValue = resolveProfileValue(fieldKey);
-            if (profileValue !== null) {
-                dynamicPayload[fieldKey] = profileValue;
+            // Auto-fill dari profil jika field bertipe text/textarea/select dan masih kosong
+            if (field.type !== 'file' && field.type !== 'checkbox') {
+                const profileValue = resolveProfileValue(fieldKey, field.label);
+                dynamicPayload[fieldKey] = profileValue ?? defaultValue;
+            } else {
+                dynamicPayload[fieldKey] = dynamicPayload[fieldKey] ?? defaultValue;
             }
-        }
+        });
     });
 
     if (props.initialData && !hasAppliedInitialData.value) {

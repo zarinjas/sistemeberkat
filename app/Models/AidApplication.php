@@ -176,20 +176,26 @@ class AidApplication extends Model
             return (string) $field['name'];
         }
 
+        if (!empty($field['id'])) {
+            return (string) $field['id'];
+        }
+
         $baseLabel = (string) ($field['label'] ?? $field['type'] ?? 'field');
-        $slug = (string) Str::of($baseLabel)
+
+        return (string) Str::of($baseLabel)
             ->lower()
             ->replaceMatches('/[^a-z0-9\s-]/', '')
             ->trim()
             ->replaceMatches('/\s+/', '_')
             ->replaceMatches('/_+/', '_');
-
-        return ($field['type'] ?? 'field').'_'.($index + 1).'_'.$slug;
     }
 
     private function formatPreviewLabel(string $key): string
     {
-        return Str::of($key)
+        // Strip legacy type_index_ prefix e.g. "text_1_nama" → "nama"
+        $cleaned = preg_replace('/^(text|select|radio|file|checkbox)_\d+_/', '', $key) ?? $key;
+
+        return Str::of($cleaned)
             ->replace('_', ' ')
             ->title()
             ->toString();

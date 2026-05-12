@@ -80,6 +80,14 @@ const toolboxComponents = [
     { key: 'checkbox', label: 'Checkbox Persetujuan' },
 ];
 
+const slugify = (value) =>
+    String(value || 'field')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_');
+
 const toFieldState = (field) => ({
     id: Date.now() + Math.floor(Math.random() * 10000),
     type: field?.type || 'text',
@@ -310,6 +318,7 @@ const buildPayload = () => {
         fields: formFields.value.map((field, index) => ({
             order: index + 1,
             type: field.type,
+            name: field.type === 'instruction' ? null : slugify(field.label || `field_${index + 1}`),
             label: field.type === 'instruction' ? null : field.label,
             content: field.type === 'instruction' ? field.content : null,
             required: field.type === 'instruction' ? false : field.required,
