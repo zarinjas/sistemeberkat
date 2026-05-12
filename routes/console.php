@@ -9,18 +9,18 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Artisan::command('berkat:seed-dummy
-    {--members=30 : Bilangan ahli dummy}
-    {--applications=60 : Bilangan permohonan dummy}
-    {--tag= : Tag batch dummy. Jika kosong, sistem jana automatik}
-    {--password=password : Kata laluan login untuk semua ahli dummy}
+    {--members=30 : Bilangan ahli ujian}
+    {--applications=60 : Bilangan permohonan ujian}
+    {--tag= : Tag batch ujian. Jika kosong, sistem jana automatik}
+    {--password=password : Kata laluan login untuk semua ahli ujian}
     {--dry-run : Papar ringkasan tanpa simpan ke database}', function (DummyDataBatchGenerator $generator) {
     $members = max(0, (int) $this->option('members'));
     $applications = max(0, (int) $this->option('applications'));
     $password = (string) $this->option('password');
-    $tag = (string) ($this->option('tag') ?: ('VPSDUMMY-'.now()->format('YmdHis')));
+    $tag = (string) ($this->option('tag') ?: ('UJIAN-'.now()->format('YmdHis')));
 
     if ($password === '') {
-        $this->error('Password dummy tidak boleh kosong.');
+        $this->error('Password ujian tidak boleh kosong.');
 
         return 1;
     }
@@ -38,8 +38,8 @@ Artisan::command('berkat:seed-dummy
             ['Perkara', 'Nilai'],
             [
                 ['Tag batch', $tag],
-                ['Ahli dummy', (string) $members],
-                ['Permohonan dummy', (string) $applications],
+                ['Ahli ujian', (string) $members],
+                ['Permohonan ujian', (string) $applications],
                 ['Password login', $password],
             ]
         );
@@ -57,7 +57,7 @@ Artisan::command('berkat:seed-dummy
         return 1;
     }
 
-    $this->info('Batch dummy berjaya dicipta.');
+    $this->info('Batch ujian berjaya dicipta.');
     $this->table(
         ['Perkara', 'Nilai'],
         [
@@ -70,13 +70,13 @@ Artisan::command('berkat:seed-dummy
         ]
     );
 
-    $this->comment('Cari rekod dummy melalui tag ini pada email, member no, dan reference no.');
+    $this->comment('Cari rekod ujian melalui tag ini pada email, member no, dan reference no.');
 
     return 0;
-})->purpose('Cipta batch ahli dummy dan permohonan dummy yang selamat untuk ujian di VPS');
+})->purpose('Cipta batch ahli ujian dan permohonan ujian yang selamat untuk ujian di VPS');
 
 Artisan::command('berkat:purge-dummy
-    {tag : Tag batch dummy yang mahu dipadam}
+    {tag : Tag batch ujian yang mahu dipadam}
     {--dry-run : Papar ringkasan tanpa padam}', function (DummyDataBatchGenerator $generator) {
     $tag = (string) $this->argument('tag');
 
@@ -105,7 +105,7 @@ Artisan::command('berkat:purge-dummy
         return 0;
     }
 
-    $this->info('Batch dummy selesai dipadam.');
+    $this->info('Batch ujian selesai dipadam.');
 
     return 0;
-})->purpose('Padam batch dummy berdasarkan tag');
+})->purpose('Padam batch ujian berdasarkan tag');

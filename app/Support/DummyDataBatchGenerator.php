@@ -21,7 +21,7 @@ class DummyDataBatchGenerator
         }
 
         if ($applicationCount > 0 && $memberCount === 0) {
-            throw new \InvalidArgumentException('Permohonan dummy memerlukan sekurang-kurangnya seorang ahli dummy.');
+            throw new \InvalidArgumentException('Permohonan ujian memerlukan sekurang-kurangnya seorang ahli ujian.');
         }
 
         $operator = User::query()
@@ -101,7 +101,7 @@ class DummyDataBatchGenerator
                     'from_status' => null,
                     'to_status' => $status,
                     'changed_by_user_id' => $operator?->id,
-                    'notes' => 'Dummy application generated via artisan command.',
+                    'notes' => 'Rekod ujian dijana melalui artisan command.',
                     'changed_at' => $timestamps['updated_at'],
                     'created_at' => $timestamps['updated_at'],
                     'updated_at' => $timestamps['updated_at'],
@@ -128,7 +128,7 @@ class DummyDataBatchGenerator
         $tag = $this->normalizeTag($tag);
 
         $users = User::query()
-            ->where('email', 'like', strtolower($tag).'.member%@dummy.local')
+            ->where('email', 'like', strtolower($tag).'.%@ujian.local')
             ->orWhere('member_no', 'like', $tag.'-%')
             ->get();
 
@@ -166,7 +166,7 @@ class DummyDataBatchGenerator
             ->toString();
 
         if ($normalized === '') {
-            throw new \InvalidArgumentException('Tag dummy tidak sah.');
+            throw new \InvalidArgumentException('Tag batch ujian tidak sah.');
         }
 
         return $normalized;
@@ -181,10 +181,17 @@ class DummyDataBatchGenerator
         $jobTitles = ['Kerani', 'Penolong Pegawai', 'Pegawai Operasi', 'Eksekutif', 'Penyelia'];
         $genders = ['lelaki', 'perempuan'];
         $maritalStatuses = ['bujang', 'berkahwin', 'bercerai'];
+        $name = $this->buildMalaysianName($index);
+        $emailLocal = Str::of($name)
+            ->lower()
+            ->ascii()
+            ->replaceMatches('/[^a-z0-9]+/', '.')
+            ->trim('.')
+            ->toString();
 
         return [
-            'name' => sprintf('Dummy Member %02d %s', $index, $tag),
-            'email' => strtolower(sprintf('%s.member%03d@dummy.local', $tag, $index)),
+            'name' => $name,
+            'email' => strtolower(sprintf('%s.%s.%03d@ujian.local', $tag, $emailLocal, $index)),
             'password' => Hash::make($password),
             'role' => 'applicant',
             'member_no' => sprintf('%s-M%03d', $tag, $index),
@@ -195,7 +202,7 @@ class DummyDataBatchGenerator
             'job_title' => $jobTitles[($index - 1) % count($jobTitles)],
             'state' => $states[($index - 1) % count($states)],
             'branch' => $branches[($index - 1) % count($branches)],
-            'address' => sprintf('Lot %d, Jalan Dummy %02d, Taman Ujian %s', 10 + $index, $index, $tag),
+            'address' => sprintf('Lot %d, Jalan Kenanga %02d, Taman Harmoni %s', 10 + $index, $index, $tag),
             'postcode' => str_pad((string) (88000 + ($index % 1000)), 5, '0', STR_PAD_LEFT),
             'city' => $cities[($index - 1) % count($cities)],
             'gender' => $genders[($index - 1) % count($genders)],
@@ -283,8 +290,8 @@ class DummyDataBatchGenerator
         $priorityScore = 25 + (($index * 11) % 70);
 
         $dynamicPayload = [
-            'tujuan_permohonan' => 'Data dummy untuk ujian aliran permohonan di VPS.',
-            'catatan_tambahan' => sprintf('Batch dummy %s item %d', $this->normalizeTag($form?->category_key ?: 'UMUM'), $index),
+            'tujuan_permohonan' => 'Data ujian untuk semakan aliran permohonan di VPS.',
+            'catatan_tambahan' => sprintf('Batch ujian %s item %d', $this->normalizeTag($form?->category_key ?: 'UMUM'), $index),
         ];
         $triageAnswers = [
             'akuan_benar' => true,
@@ -314,7 +321,7 @@ class DummyDataBatchGenerator
 
                 if ($type === 'file') {
                     $dynamicPayload[$name] = [
-                        'original_name' => Str::slug($label).'-dummy.pdf',
+                        'original_name' => Str::slug($label).'-ujian.pdf',
                     ];
                     continue;
                 }
@@ -330,7 +337,7 @@ class DummyDataBatchGenerator
             'requested_amount' => $amount,
             'priority_score' => $priorityScore,
             'priority_label' => $priorityScore >= 75 ? 'Tinggi' : ($priorityScore >= 50 ? 'Sederhana' : 'Normal'),
-            'priority_reason' => 'Rekod dummy untuk semakan UI, senarai, dan aliran operasi.',
+            'priority_reason' => 'Rekod ujian untuk semakan UI, senarai, dan aliran operasi.',
         ];
     }
 
@@ -359,10 +366,10 @@ class DummyDataBatchGenerator
             'number' => (string) (100 + $index),
             'currency' => (string) (500 + ($index * 25)),
             'date' => now()->subDays($index)->toDateString(),
-            'textarea' => $label.' dummy untuk tujuan ujian sistem.',
+            'textarea' => $label.' untuk tujuan ujian sistem.',
             'select', 'radio' => $options->isNotEmpty()
                 ? (string) $options[($index - 1) % $options->count()]
-                : $label.' pilihan dummy',
+                : $label.' pilihan ujian',
             default => $label.' '.$index,
         };
     }
@@ -373,5 +380,30 @@ class DummyDataBatchGenerator
         $value = 100000000000 + ($hash % 89999999999);
 
         return str_pad((string) $value, 12, '0', STR_PAD_LEFT);
+    }
+
+    private function buildMalaysianName(int $index): string
+    {
+        $maleFirstNames = [
+            'Ahmad', 'Muhammad', 'Faiz', 'Firdaus', 'Hakim', 'Hafiz', 'Aiman', 'Syafiq', 'Amirul', 'Zulkifli',
+            'Ridzuan', 'Shahril', 'Fikri', 'Izwan', 'Nazmi',
+        ];
+        $femaleFirstNames = [
+            'Siti', 'Nurul', 'Aisyah', 'Farah', 'Nabila', 'Syafiqah', 'Amira', 'Ain', 'Husna', 'Izzati',
+            'Sabrina', 'Nadiah', 'Balqis', 'Atikah', 'Suhaila',
+        ];
+        $fatherNames = [
+            'Rahman', 'Razak', 'Salleh', 'Yusof', 'Hamid', 'Khalid', 'Roslan', 'Jamil', 'Ismail', 'Johari',
+            'Zainal', 'Mahmud', 'Basri', 'Karim', 'Osman',
+        ];
+
+        $isMale = $index % 2 === 1;
+        $first = $isMale
+            ? $maleFirstNames[($index - 1) % count($maleFirstNames)]
+            : $femaleFirstNames[($index - 1) % count($femaleFirstNames)];
+        $connector = $isMale ? 'bin' : 'binti';
+        $father = $fatherNames[(int) floor(($index - 1) / 2) % count($fatherNames)];
+
+        return sprintf('%s %s %s', $first, $connector, $father);
     }
 }
