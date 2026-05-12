@@ -93,7 +93,7 @@ class AdminApprovalController extends Controller
 
     public function show(AidApplication $application): Response
     {
-        $application->load(['user', 'walletDocuments', 'statusHistories.changedBy']);
+        $application->load(['user', 'statusHistories.changedBy']);
 
         return Inertia::render('Approvals/Show', [
             'application' => $application,

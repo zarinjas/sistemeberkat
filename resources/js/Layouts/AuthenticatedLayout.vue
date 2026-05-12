@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, reactive } from 'vue';
+import { computed, ref, reactive, watch } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -13,19 +13,31 @@ const expandedMenus = reactive({});
 
 const getMenuKey = (item) => item.menuKey ?? item.label;
 
-const isMenuExpanded = (item) => expandedMenus[getMenuKey(item)] ?? true;
+const isMenuExpanded = (item) => expandedMenus[getMenuKey(item)] ?? false;
+
+const syncExpandedMenu = (activeMenuKey = null, items = []) => {
+    items
+        .filter((item) => item.children)
+        .forEach((item) => {
+            const menuKey = getMenuKey(item);
+            expandedMenus[menuKey] = menuKey === activeMenuKey;
+        });
+};
 
 const toggleMenu = (item) => {
     const menuKey = getMenuKey(item);
-    expandedMenus[menuKey] = !isMenuExpanded(item);
+    syncExpandedMenu(isMenuExpanded(item) ? null : menuKey, navigationItems.value);
 };
 
 const user = computed(() => page.props.auth?.user ?? {});
 const userInitial = computed(() => (user.value.name || 'U').charAt(0).toUpperCase());
+const userRole = computed(() => String(user.value.role || '').trim().toLowerCase());
+const isSuperAdminUser = computed(() => userRole.value === 'superadmin' || user.value.is_superadmin === true);
+const isAdminAreaUser = computed(() => userRole.value === 'admin' || isSuperAdminUser.value);
 
 const navigationItems = computed(() => {
     const guidelineChildren = [
-        ...(user.value.is_superadmin ? [{ label: 'Urus Garis Panduan', href: route('guidelines.manage'), active: route().current('guidelines.manage') }] : []),
+        ...(isSuperAdminUser.value ? [{ label: 'Urus Garis Panduan', href: route('guidelines.manage'), active: route().current('guidelines.manage') }] : []),
         ...((page.props.guidelinesNav || []).map((item) => ({
             label: item.title,
             href: route('guidelines.show', item.slug),
@@ -43,7 +55,7 @@ const navigationItems = computed(() => {
         { label: 'Dashboard', href: route('dashboard'), active: route().current('dashboard') },
     ];
 
-    if (user.value.role === 'applicant') {
+    if (userRole.value === 'applicant') {
         items.push(
             { label: 'Permohonan', href: route('applications.index'), active: route().current('applications.*'), isPrimaryAction: true },
             { label: 'Kad Ahli', href: route('membership-card'), active: route().current('membership-card') },
@@ -55,7 +67,7 @@ const navigationItems = computed(() => {
         { label: 'Garis Panduan', href: '#', active: route().current('guidelines.*'), children: guidelineChildren, menuKey: 'guidelines' },
     );
 
-    if (user.value.role === 'admin' || user.value.is_superadmin) {
+    if (isAdminAreaUser.value) {
         items.push(
             { label: 'Kelulusan', href: route('admin.applications.index'), active: route().current('admin.approvals.*') || route().current('admin.applications.*') },
             { label: 'Bayaran', href: route('admin.payments.index'), active: route().current('admin.payments.*') },
@@ -64,7 +76,7 @@ const navigationItems = computed(() => {
             { label: 'Pengurusan Ahli BERKAT', href: route('admin.system.index'), active: route().current('admin.system.*') },
         );
 
-        if (user.value.is_superadmin) {
+        if (isSuperAdminUser.value) {
             items.push(
                                 { label: 'Pengurusan Borang',
                                     menuKey: 'form-management',
@@ -82,6 +94,40 @@ const navigationItems = computed(() => {
 
     return items;
 });
+
+watch(
+    navigationItems,
+    (items) => {
+        const activeMenu = items.find((item) => item.children && item.active);
+        syncExpandedMenu(activeMenu ? getMenuKey(activeMenu) : null, items);
+    },
+    { immediate: true },
+);
+
+const beforeEnterSubmenu = (element) => {
+    element.style.height = '0';
+    element.style.opacity = '0';
+};
+
+const enterSubmenu = (element) => {
+    element.style.height = `${element.scrollHeight}px`;
+    element.style.opacity = '1';
+};
+
+const afterEnterSubmenu = (element) => {
+    element.style.height = 'auto';
+};
+
+const beforeLeaveSubmenu = (element) => {
+    element.style.height = `${element.scrollHeight}px`;
+    element.style.opacity = '1';
+};
+
+const leaveSubmenu = (element) => {
+    element.offsetHeight;
+    element.style.height = '0';
+    element.style.opacity = '0';
+};
 </script>
 
 <template>
@@ -129,18 +175,27 @@ const navigationItems = computed(() => {
                                 <span class="text-xs">{{ isMenuExpanded(item) ? '▾' : '▸' }}</span>
                             </button>
 
-                            <div v-if="isMenuExpanded(item)" class="ml-5 mr-2 space-y-1">
-                                <Link
-                                    v-for="child in item.children"
-                                    :key="child.label"
-                                    :href="child.href"
-                                    class="block rounded-lg px-3 py-2 text-xs font-medium transition"
-                                    :class="child.active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'"
-                                    @click="showSidebar = false"
-                                >
-                                    {{ child.label }}
-                                </Link>
-                            </div>
+                            <Transition
+                                name="sidebar-submenu"
+                                @before-enter="beforeEnterSubmenu"
+                                @enter="enterSubmenu"
+                                @after-enter="afterEnterSubmenu"
+                                @before-leave="beforeLeaveSubmenu"
+                                @leave="leaveSubmenu"
+                            >
+                                <div v-if="isMenuExpanded(item)" class="ml-5 mr-2 space-y-1 overflow-hidden">
+                                    <Link
+                                        v-for="child in item.children"
+                                        :key="child.label"
+                                        :href="child.href"
+                                        class="block rounded-lg px-3 py-2 text-xs font-medium transition"
+                                        :class="child.active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'"
+                                        @click="showSidebar = false"
+                                    >
+                                        {{ child.label }}
+                                    </Link>
+                                </div>
+                            </Transition>
                         </template>
 
                         <Link
@@ -213,3 +268,10 @@ const navigationItems = computed(() => {
         </div>
     </div>
 </template>
+
+<style scoped>
+.sidebar-submenu-enter-active,
+.sidebar-submenu-leave-active {
+    transition: height 0.22s ease, opacity 0.18s ease;
+}
+</style>

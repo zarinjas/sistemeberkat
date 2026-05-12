@@ -168,7 +168,6 @@ const postApplication = (isDraft) => {
     submitForm.triage_answers = payload.triage_answers;
     submitForm.dynamic_payload = payload.dynamic_payload;
     submitForm.category_tags = payload.category_tags;
-    submitForm.wallet_document_ids = payload.wallet_document_ids;
     submitForm.is_draft = isDraft;
     submitForm.post(route('applications.store'), {
         forceFormData: true,

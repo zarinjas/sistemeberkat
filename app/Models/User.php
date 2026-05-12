@@ -27,6 +27,10 @@ use Illuminate\Notifications\Notifiable;
     'first_login_completed',
     'branch',
     'address',
+    'postcode',
+    'city',
+    'gender',
+    'marital_status',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -47,11 +51,6 @@ class User extends Authenticatable
         ];
     }
 
-    public function walletDocuments(): HasMany
-    {
-        return $this->hasMany(WalletDocument::class);
-    }
-
     public function aidApplications(): HasMany
     {
         return $this->hasMany(AidApplication::class);
@@ -65,6 +64,11 @@ class User extends Authenticatable
     public function roleChangesInitiated(): HasMany
     {
         return $this->hasMany(RoleChangeAudit::class, 'changed_by_user_id');
+    }
+
+    public function loginAccessLogs(): HasMany
+    {
+        return $this->hasMany(LoginAccessLog::class);
     }
 
     public function isAdmin(): bool

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Services\LoginAccessLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,11 @@ use Inertia\Response;
 
 class AuthenticatedSessionController extends Controller
 {
+    public function __construct(
+        private readonly LoginAccessLogger $loginAccessLogger,
+    ) {
+    }
+
     /**
      * Display the login view.
      */
@@ -43,6 +49,11 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $authenticatedUser = $request->user();
+
+        if ($authenticatedUser) {
+            $this->loginAccessLogger->log($request, $authenticatedUser, 'standard');
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
@@ -95,6 +106,7 @@ class AuthenticatedSessionController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $this->loginAccessLogger->log($request, $user, 'first_time');
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

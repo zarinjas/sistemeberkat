@@ -301,7 +301,7 @@ const recordTransaction = (applicationId) => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-slate-800">Command Center Pengurusan JANM</h2>
+            <h2 class="text-xl font-semibold leading-tight text-slate-800">Command Center Pengurusan Sistem E-Berkat</h2>
         </template>
 
         <div class="mx-auto max-w-7xl">
@@ -313,7 +313,7 @@ const recordTransaction = (applicationId) => {
                     <div class="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <p class="text-sm font-semibold text-indigo-600">{{ greetingLabel }}, {{ firstName }}.</p>
-                            <h3 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">Pengurusan Operasi JANM</h3>
+                            <h3 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">Pengurusan Operasi E-Berkat</h3>
                             <p class="mt-2 max-w-2xl text-sm text-slate-600">Pantau permohonan berkeutamaan, status kelulusan, dan tindakan operasi harian dalam satu paparan premium yang ringkas.</p>
 
                             <div class="mt-4 flex flex-wrap gap-2">

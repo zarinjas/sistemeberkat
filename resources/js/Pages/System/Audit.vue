@@ -16,10 +16,16 @@ const props = defineProps({
         type: Object,
         default: () => ({ q: '' }),
     },
+    loginLogs: {
+        type: Object,
+        default: () => ({ data: [], links: [] }),
+    },
 });
 
 const memberAction = ref(props.filters?.member_action || '');
 const memberPageInput = ref('');
+const loginKeyword = ref(props.filters?.login_q || '');
+const loginPageInput = ref('');
 
 const memberActionOptions = [
     { value: '', label: 'Semua Aksi Ahli' },
@@ -47,6 +53,9 @@ const onSearch = (event) => {
     router.get(route('admin.audit.index'), {
         q: event.target.value,
         member_action: memberAction.value || undefined,
+        login_q: loginKeyword.value || undefined,
+        member_page: props.memberLogs?.current_page || undefined,
+        login_page: props.loginLogs?.current_page || undefined,
     }, {
         preserveState: true,
         replace: true,
@@ -57,6 +66,9 @@ const onMemberActionFilter = () => {
     router.get(route('admin.audit.index'), {
         q: props.filters?.q || undefined,
         member_action: memberAction.value || undefined,
+        login_q: loginKeyword.value || undefined,
+        page: props.logs?.current_page || undefined,
+        login_page: props.loginLogs?.current_page || undefined,
     }, {
         preserveState: true,
         replace: true,
@@ -85,8 +97,55 @@ const jumpToMemberPage = () => {
     router.get(route('admin.audit.index'), {
         q: props.filters?.q || undefined,
         member_action: memberAction.value || undefined,
+        login_q: props.filters?.login_q || undefined,
         page: props.logs?.current_page || undefined,
         member_page: parsedPage,
+        login_page: props.loginLogs?.current_page || undefined,
+    }, {
+        preserveState: true,
+        replace: true,
+    });
+};
+
+const onLoginSearch = () => {
+    router.get(route('admin.audit.index'), {
+        q: props.filters?.q || undefined,
+        member_action: memberAction.value || undefined,
+        login_q: loginKeyword.value || undefined,
+        page: props.logs?.current_page || undefined,
+        member_page: props.memberLogs?.current_page || undefined,
+    }, {
+        preserveState: true,
+        replace: true,
+    });
+};
+
+const goToLoginPage = (url) => {
+    if (!url) {
+        return;
+    }
+
+    router.visit(url, {
+        preserveState: true,
+        preserveScroll: true,
+    });
+};
+
+const jumpToLoginPage = () => {
+    const lastPage = Number(props.loginLogs?.last_page || 1);
+    const parsedPage = Number(loginPageInput.value);
+
+    if (!Number.isInteger(parsedPage) || parsedPage < 1 || parsedPage > lastPage) {
+        return;
+    }
+
+    router.get(route('admin.audit.index'), {
+        q: props.filters?.q || undefined,
+        member_action: memberAction.value || undefined,
+        login_q: loginKeyword.value || undefined,
+        page: props.logs?.current_page || undefined,
+        member_page: props.memberLogs?.current_page || undefined,
+        login_page: parsedPage,
     }, {
         preserveState: true,
         replace: true,
@@ -246,6 +305,98 @@ const jumpToMemberPage = () => {
                             </button>
                         </div>
                     </div>
+                </section>
+
+                <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+                    <details>
+                        <summary class="cursor-pointer text-sm font-semibold text-slate-700">
+                            Log Akses Login (IP & Lokasi)
+                        </summary>
+                        <p class="mt-3 text-xs text-slate-500">
+                            Rekod ini menyimpan setiap login berjaya termasuk IP, lokasi anggaran, ISP, dan jenis login. Bahagian ini diletakkan di dalam menu Audit untuk semakan dalaman.
+                        </p>
+
+                        <div class="mt-4 max-w-md">
+                            <input
+                                v-model="loginKeyword"
+                                type="text"
+                                class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Cari nama, email, IP, lokasi, atau ISP"
+                                @input="onLoginSearch"
+                            >
+                        </div>
+
+                        <div class="mt-5 overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-600">Masa Login</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-600">Pengguna</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-600">Peranan</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-600">IP</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-600">Lokasi</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-600">ISP</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-slate-600">Jenis Login</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr v-if="!loginLogs?.data?.length">
+                                        <td colspan="7" class="px-4 py-6 text-center text-slate-500">Tiada log login dijumpai.</td>
+                                    </tr>
+                                    <tr v-for="log in loginLogs.data || []" :key="`login-${log.id}`">
+                                        <td class="px-4 py-3 text-slate-600">{{ log.logged_in_at }}</td>
+                                        <td class="px-4 py-3 text-slate-700">
+                                            <div class="font-medium text-slate-900">{{ log.user_name }}</div>
+                                            <div class="text-xs text-slate-500">{{ log.user_email }}</div>
+                                        </td>
+                                        <td class="px-4 py-3 text-slate-700">{{ log.user_role }}</td>
+                                        <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ log.ip_address }}</td>
+                                        <td class="px-4 py-3 text-slate-700">{{ log.location_summary }}</td>
+                                        <td class="px-4 py-3 text-slate-700">{{ log.isp }}</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">{{ log.login_type }}</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div v-if="loginLogs?.links?.length > 3" class="mt-4 flex flex-wrap items-center gap-2">
+                            <button
+                                v-for="(link, index) in loginLogs.links"
+                                :key="`login-page-${index}`"
+                                type="button"
+                                :class="[
+                                    'whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold',
+                                    link.active
+                                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+                                    !link.url ? 'pointer-events-none opacity-50' : '',
+                                ]"
+                                :disabled="!link.url"
+                                v-html="link.label"
+                                @click="goToLoginPage(link.url)"
+                            ></button>
+
+                            <div class="ml-auto flex items-center gap-2">
+                                <label class="text-xs font-semibold text-slate-600">Pergi Halaman</label>
+                                <input
+                                    v-model="loginPageInput"
+                                    type="number"
+                                    min="1"
+                                    :max="loginLogs?.last_page || 1"
+                                    class="w-20 rounded-lg border-slate-300 px-2 py-1 text-xs focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                <button
+                                    type="button"
+                                    class="whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+                                    @click="jumpToLoginPage"
+                                >
+                                    Pergi
+                                </button>
+                            </div>
+                        </div>
+                    </details>
                 </section>
             </div>
         </div>

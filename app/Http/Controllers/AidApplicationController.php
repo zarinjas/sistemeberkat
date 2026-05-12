@@ -92,7 +92,6 @@ class AidApplicationController extends Controller
             ->aidApplications()
             ->where('status', AidApplication::STATUS_DRAFT)
             ->when($draftId, fn ($query) => $query->whereKey($draftId))
-            ->with('walletDocuments:id')
             ->latest()
             ->first();
 
@@ -129,7 +128,6 @@ class AidApplicationController extends Controller
                 'triage_answers' => $draftApplication->triage_answers,
                 'dynamic_payload' => $draftApplication->dynamic_payload,
                 'category_tags' => $draftApplication->category_tags,
-                'wallet_document_ids' => $draftApplication->walletDocuments->pluck('id')->values(),
                 'form_id' => $draftFormId ?: $selectedForm?->id,
             ]
             : null;
@@ -153,8 +151,6 @@ class AidApplicationController extends Controller
             'dynamic_payload' => [$isDraft ? 'nullable' : 'required', 'array'],
             'category_tags' => ['nullable', 'array'],
             'category_tags.*' => ['string', 'max:60'],
-            'wallet_document_ids' => ['nullable', 'array'],
-            'wallet_document_ids.*' => ['integer', 'exists:wallet_documents,id'],
         ]);
 
             $selectedForm = FormSchema::query()
@@ -191,8 +187,6 @@ class AidApplicationController extends Controller
             ->filter()
             ->values();
 
-        $uploadedWalletDocIds = [];
-
         $uploadedDynamicFiles = data_get($request->allFiles(), 'dynamic_payload', []);
 
         if (is_array($uploadedDynamicFiles)) {
@@ -201,25 +195,14 @@ class AidApplicationController extends Controller
                     continue;
                 }
 
-                $path = $uploadedFile->store('wallet-documents');
-
-                $walletDocument = $request->user()->walletDocuments()->create([
-                    'type' => $selectedForm->category_key,
-                    'label' => 'Dokumen Sokongan',
-                    'file_path' => $path,
-                    'mime_type' => $uploadedFile->getMimeType(),
-                    'file_size' => $uploadedFile->getSize(),
-                    'uploaded_at' => now(),
-                ]);
+                $path = $uploadedFile->store('application-documents');
 
                 $dynamicPayload[$fieldName] = [
-                    'wallet_document_id' => $walletDocument->id,
+                    'file_path' => $path,
                     'original_name' => $uploadedFile->getClientOriginalName(),
                     'mime_type' => $uploadedFile->getMimeType(),
                     'file_size' => $uploadedFile->getSize(),
                 ];
-
-                $uploadedWalletDocIds[] = $walletDocument->id;
             }
         }
 
@@ -229,7 +212,7 @@ class AidApplicationController extends Controller
             if (
                 !$isDraft
                 && $fileField['required']
-                && empty(data_get($dynamicPayload, $fileField['name'].'.wallet_document_id'))
+                && empty(data_get($dynamicPayload, $fileField['name'].'.file_path'))
             ) {
                 return back()->withErrors([
                     $inputPath => 'Sila muat naik dokumen wajib: '.$fileField['label'],
@@ -249,7 +232,7 @@ class AidApplicationController extends Controller
                 $categoryTags,
             );
 
-        $applicationId = DB::transaction(function () use ($request, $validated, $status, $scored, $isDraft, $dynamicPayload, $categoryTags, $uploadedWalletDocIds) {
+        $applicationId = DB::transaction(function () use ($request, $validated, $status, $scored, $isDraft, $dynamicPayload, $categoryTags) {
             $existingDraft = null;
 
             if (!empty($validated['draft_application_id'])) {
@@ -281,13 +264,6 @@ class AidApplicationController extends Controller
                     'reference_no' => 'BERKAT-'.now()->format('Ymd').'-'.Str::upper(Str::random(4)),
                 ]);
             }
-
-            $walletDocIds = collect($validated['wallet_document_ids'] ?? [])
-                ->merge($uploadedWalletDocIds)
-                ->intersect($request->user()->walletDocuments()->pluck('id'))
-                ->values();
-
-            $application->walletDocuments()->sync($walletDocIds);
 
             ApplicationStatusHistory::create([
                 'aid_application_id' => $application->id,
@@ -324,7 +300,7 @@ class AidApplicationController extends Controller
     {
         abort_if($application->user_id !== $request->user()->id, 403);
 
-        $application->load(['walletDocuments', 'statusHistories.changedBy']);
+        $application->load(['statusHistories.changedBy']);
 
         return Inertia::render('Applications/Show', [
             'application' => $application,
@@ -371,7 +347,6 @@ class AidApplicationController extends Controller
                 'changed_at' => now(),
             ]);
 
-            $application->walletDocuments()->detach();
             $application->delete();
         });
 

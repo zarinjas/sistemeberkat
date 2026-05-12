@@ -27,8 +27,8 @@ const printPage = () => {
         </template>
 
         <div class="py-8">
-            <div class="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:px-8 lg:grid-cols-3">
-                <div class="rounded-lg bg-white p-5 shadow-sm lg:col-span-2">
+            <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+                <div class="rounded-lg bg-white p-5 shadow-sm">
                     <div class="mb-4 flex items-center justify-between gap-2 print:hidden">
                         <h3 class="text-lg font-semibold text-gray-900">{{ application.reference_no }}</h3>
                         <div class="flex items-center gap-2">
@@ -83,14 +83,6 @@ const printPage = () => {
                     </div>
                 </div>
 
-                <div class="rounded-lg bg-white p-5 shadow-sm">
-                    <h3 class="text-sm font-semibold text-gray-900">Linked Wallet Documents</h3>
-                    <div class="mt-3 space-y-2">
-                        <div v-for="doc in application.wallet_documents" :key="doc.id" class="rounded border border-gray-200 p-2 text-sm text-gray-700">
-                            {{ doc.label || doc.type }}
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </AuthenticatedLayout>

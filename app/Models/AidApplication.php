@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -80,13 +79,6 @@ class AidApplication extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(ApplicationStatusHistory::class)->latest('changed_at');
-    }
-
-    public function walletDocuments(): BelongsToMany
-    {
-        return $this->belongsToMany(WalletDocument::class, 'application_wallet_documents')
-            ->withPivot('relation_type')
-            ->withTimestamps();
     }
 
     public function buildFormPreview(): array

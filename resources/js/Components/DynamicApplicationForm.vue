@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     publishedSchemas: {
@@ -349,6 +349,65 @@ const form = useForm({
     category_tags: [],
 });
 
+const authUser = usePage().props.auth?.user ?? {};
+
+const birthDateFromNric = (nric) => {
+    const digits = String(nric ?? '').replace(/\D/g, '');
+    if (digits.length < 6) return '';
+    const yy = parseInt(digits.slice(0, 2));
+    const mm = digits.slice(2, 4);
+    const dd = digits.slice(4, 6);
+    const year = yy <= parseInt(new Date().getFullYear().toString().slice(2)) ? 2000 + yy : 1900 + yy;
+    return `${dd}/${mm}/${year}`;
+};
+
+const PROFILE_FIELD_MAP = {
+    nama: 'name',
+    name: 'name',
+    nama_pemohon: 'name',
+    emel: 'email',
+    email: 'email',
+    no_telefon: 'phone',
+    telefon: 'phone',
+    phone: 'phone',
+    no_kad_pengenalan: 'nric',
+    no_ic: 'nric',
+    nric: 'nric',
+    ic: 'nric',
+    tarikh_lahir: (user) => birthDateFromNric(user.nric),
+    date_of_birth: (user) => birthDateFromNric(user.nric),
+    dob: (user) => birthDateFromNric(user.nric),
+    jantina: 'gender',
+    gender: 'gender',
+    status_perkahwinan: 'marital_status',
+    marital_status: 'marital_status',
+    alamat: 'address',
+    address: 'address',
+    alamat_rumah: 'address',
+    poskod: 'postcode',
+    postcode: 'postcode',
+    bandar: 'city',
+    city: 'city',
+    negeri: 'state',
+    state: 'state',
+    jawatan: 'job_title',
+    job_title: 'job_title',
+    jabatan: 'department',
+    department: 'department',
+    no_ahli: 'member_no',
+    member_no: 'member_no',
+    no_gred: 'employment_grade',
+    employment_grade: 'employment_grade',
+};
+
+const resolveProfileValue = (fieldName) => {
+    const mapping = PROFILE_FIELD_MAP[fieldName];
+    if (!mapping) return null;
+    if (typeof mapping === 'function') return mapping(authUser) || null;
+    const val = authUser[mapping];
+    return val !== undefined && val !== null && val !== '' ? val : null;
+};
+
 const hasAppliedInitialData = ref(false);
 
 const getFieldKey = (field) => field.name || field.id;
@@ -408,6 +467,16 @@ const initializeFormFromSchema = () => {
         });
     });
 
+    // Auto-fill dari profil untuk field yang masih kosong
+    Object.keys(dynamicPayload).forEach((fieldKey) => {
+        if (!dynamicPayload[fieldKey]) {
+            const profileValue = resolveProfileValue(fieldKey);
+            if (profileValue !== null) {
+                dynamicPayload[fieldKey] = profileValue;
+            }
+        }
+    });
+
     if (props.initialData && !hasAppliedInitialData.value) {
         const initialDynamicPayload = props.initialData.dynamic_payload || {};
         const initialTriageAnswers = props.initialData.triage_answers || {};
@@ -444,7 +513,6 @@ const initializeFormFromSchema = () => {
     form.dynamic_payload = dynamicPayload;
     form.triage_answers = triageAnswers;
     form.category_tags = props.initialData?.category_tags?.length ? props.initialData.category_tags : [selectedCategory.value];
-    form.wallet_document_ids = props.initialData?.wallet_document_ids?.length ? props.initialData.wallet_document_ids : [];
 }
 
 watch(
@@ -491,7 +559,6 @@ const buildSubmissionPayload = () => {
         triage_answers: triageAnswers,
         dynamic_payload: dynamicPayload,
         category_tags: [selectedCategory.value],
-        wallet_document_ids: form.wallet_document_ids || [],
         form_id: props.schema?.id || null,
     };
 };

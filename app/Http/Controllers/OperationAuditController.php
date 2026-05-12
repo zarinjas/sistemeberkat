@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ApplicationStatusHistory;
+use App\Models\LoginAccessLog;
 use App\Models\MemberOperationAudit;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,6 +19,7 @@ class OperationAuditController extends Controller
 
         $keyword = $request->string('q')->value();
         $memberAction = trim((string) $request->string('member_action')->value());
+        $loginKeyword = trim((string) $request->string('login_q')->value());
 
         $logs = ApplicationStatusHistory::query()
             ->with([
@@ -76,12 +78,40 @@ class OperationAuditController extends Controller
                 'created_at' => optional($audit->created_at)->format('d M Y H:i:s') ?: '-',
             ]);
 
+        $loginLogs = LoginAccessLog::query()
+            ->when($loginKeyword !== '', function ($query) use ($loginKeyword) {
+                $query->where(function ($inner) use ($loginKeyword) {
+                    $inner->where('user_name', 'like', "%{$loginKeyword}%")
+                        ->orWhere('user_email', 'like', "%{$loginKeyword}%")
+                        ->orWhere('ip_address', 'like', "%{$loginKeyword}%")
+                        ->orWhere('location_summary', 'like', "%{$loginKeyword}%")
+                        ->orWhere('isp', 'like', "%{$loginKeyword}%");
+                });
+            })
+            ->latest('logged_in_at')
+            ->paginate(25, ['*'], 'login_page')
+            ->withQueryString()
+            ->through(fn (LoginAccessLog $log) => [
+                'id' => $log->id,
+                'user_name' => $log->user_name ?: '-',
+                'user_email' => $log->user_email ?: '-',
+                'user_role' => $log->user_role ?: '-',
+                'login_type' => $log->login_type ?: 'standard',
+                'ip_address' => $log->ip_address ?: '-',
+                'location_summary' => $log->location_summary ?: '-',
+                'isp' => $log->isp ?: '-',
+                'user_agent' => $log->user_agent ?: '-',
+                'logged_in_at' => optional($log->logged_in_at)->format('d M Y H:i:s') ?: '-',
+            ]);
+
         return Inertia::render('System/Audit', [
             'logs' => $logs,
             'memberLogs' => $memberLogs,
+            'loginLogs' => $loginLogs,
             'filters' => [
                 'q' => $keyword,
                 'member_action' => $memberAction,
+                'login_q' => $loginKeyword,
             ],
         ]);
     }

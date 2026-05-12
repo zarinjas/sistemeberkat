@@ -36,13 +36,44 @@ const malaysiaStates = [
     'W.P. Putrajaya',
 ];
 
+const nricRaw = ref(user.nric ?? '');
+
+const formatNric = (val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 12);
+    if (digits.length <= 6) return digits;
+    if (digits.length <= 8) return `${digits.slice(0, 6)}-${digits.slice(6)}`;
+    return `${digits.slice(0, 6)}-${digits.slice(6, 8)}-${digits.slice(8)}`;
+};
+
+const birthDateFromNric = computed(() => {
+    const digits = nricRaw.value.replace(/\D/g, '');
+    if (digits.length < 6) return '';
+    const yy = parseInt(digits.slice(0, 2));
+    const mm = digits.slice(2, 4);
+    const dd = digits.slice(4, 6);
+    const year = yy <= parseInt(new Date().getFullYear().toString().slice(2)) ? 2000 + yy : 1900 + yy;
+    return `${dd}/${mm}/${year}`;
+});
+
+const onNricInput = (e) => {
+    const formatted = formatNric(e.target.value);
+    nricRaw.value = formatted;
+    form.nric = formatted;
+};
+
 const form = useForm({
     name: user.name,
     email: user.email,
     phone: user.phone ?? '',
+    nric: user.nric ?? '',
     job_title: user.job_title ?? '',
     state: user.state ?? '',
     department: user.department ?? '',
+    address: user.address ?? '',
+    postcode: user.postcode ?? '',
+    city: user.city ?? '',
+    gender: user.gender ?? '',
+    marital_status: user.marital_status ?? '',
     avatar: null,
     remove_avatar: false,
     _method: 'patch',
@@ -174,6 +205,52 @@ const submit = () => {
                 </div>
 
                 <div>
+                    <InputLabel for="nric" value="No Kad Pengenalan" />
+                    <TextInput
+                        id="nric"
+                        type="text"
+                        class="mt-1 block w-full"
+                        :value="nricRaw"
+                        @input="onNricInput"
+                        placeholder="940729-04-5407"
+                        maxlength="14"
+                    />
+                    <p v-if="birthDateFromNric" class="mt-1 text-xs text-gray-500">
+                        Tarikh Lahir: {{ birthDateFromNric }}
+                    </p>
+                    <InputError class="mt-2" :message="form.errors.nric" />
+                </div>
+
+                <div>
+                    <InputLabel for="gender" value="Jantina" />
+                    <select
+                        id="gender"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        v-model="form.gender"
+                    >
+                        <option value="">Pilih Jantina</option>
+                        <option value="lelaki">Lelaki</option>
+                        <option value="perempuan">Perempuan</option>
+                    </select>
+                    <InputError class="mt-2" :message="form.errors.gender" />
+                </div>
+
+                <div>
+                    <InputLabel for="marital_status" value="Status Perkahwinan" />
+                    <select
+                        id="marital_status"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        v-model="form.marital_status"
+                    >
+                        <option value="">Pilih Status</option>
+                        <option value="berkahwin">Berkahwin</option>
+                        <option value="bujang">Bujang</option>
+                        <option value="bercerai">Bercerai</option>
+                    </select>
+                    <InputError class="mt-2" :message="form.errors.marital_status" />
+                </div>
+
+                <div>
                     <InputLabel for="job_title" value="Jawatan" />
                     <TextInput
                         id="job_title"
@@ -182,6 +259,55 @@ const submit = () => {
                         v-model="form.job_title"
                     />
                     <InputError class="mt-2" :message="form.errors.job_title" />
+                </div>
+
+                <div>
+                    <InputLabel for="department" value="Jabatan" />
+                    <TextInput
+                        id="department"
+                        type="text"
+                        class="mt-1 block w-full"
+                        v-model="form.department"
+                    />
+                    <InputError class="mt-2" :message="form.errors.department" />
+                </div>
+            </div>
+
+            <div>
+                <InputLabel for="address" value="Alamat Rumah" />
+                <textarea
+                    id="address"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    rows="3"
+                    v-model="form.address"
+                    placeholder="No. rumah, Jalan, Taman/Kampung"
+                ></textarea>
+                <InputError class="mt-2" :message="form.errors.address" />
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                    <InputLabel for="postcode" value="Poskod" />
+                    <TextInput
+                        id="postcode"
+                        type="text"
+                        class="mt-1 block w-full"
+                        v-model="form.postcode"
+                        placeholder="68000"
+                        maxlength="5"
+                    />
+                    <InputError class="mt-2" :message="form.errors.postcode" />
+                </div>
+
+                <div>
+                    <InputLabel for="city" value="Bandar" />
+                    <TextInput
+                        id="city"
+                        type="text"
+                        class="mt-1 block w-full"
+                        v-model="form.city"
+                    />
+                    <InputError class="mt-2" :message="form.errors.city" />
                 </div>
 
                 <div>
@@ -201,17 +327,6 @@ const submit = () => {
                         </option>
                     </select>
                     <InputError class="mt-2" :message="form.errors.state" />
-                </div>
-
-                <div>
-                    <InputLabel for="department" value="Jabatan" />
-                    <TextInput
-                        id="department"
-                        type="text"
-                        class="mt-1 block w-full"
-                        v-model="form.department"
-                    />
-                    <InputError class="mt-2" :message="form.errors.department" />
                 </div>
             </div>
 
