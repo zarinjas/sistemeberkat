@@ -118,7 +118,7 @@ class AidApplication extends Model
                     continue;
                 }
 
-                $fieldName = $this->normalizePreviewFieldName($field, $index);
+                $fieldName = $this->normalizePreviewFieldName($field, $index + 1);
                 $fieldLabel = $field['label'] ?? $this->formatPreviewLabel($fieldName);
                 $fieldType = (string) ($field['type'] ?? 'text');
 
@@ -176,18 +176,17 @@ class AidApplication extends Model
             return (string) $field['name'];
         }
 
-        if (!empty($field['id'])) {
-            return (string) $field['id'];
-        }
-
         $baseLabel = (string) ($field['label'] ?? $field['type'] ?? 'field');
-
-        return (string) Str::of($baseLabel)
+        $slug = (string) Str::of($baseLabel)
             ->lower()
             ->replaceMatches('/[^a-z0-9\s-]/', '')
             ->trim()
             ->replaceMatches('/\s+/', '_')
             ->replaceMatches('/_+/', '_');
+
+        $type = (string) ($field['type'] ?? 'field');
+
+        return "{$type}_{$index}_{$slug}";
     }
 
     private function formatPreviewLabel(string $key): string

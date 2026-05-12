@@ -351,12 +351,14 @@ class AdminFormBuilderController extends Controller
             'version' => ['nullable', 'string', 'max:20'],
             'fields' => ['required', 'array', 'min:1'],
             'fields.*.order' => ['required', 'integer', 'min:1'],
-            'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'instruction', 'select', 'radio', 'file', 'checkbox'])],
+            'fields.*.type' => ['required', Rule::in(['text', 'textarea', 'instruction', 'select', 'radio', 'file', 'checkbox', 'profile_field'])],
             'fields.*.label' => ['nullable', 'string', 'max:255'],
             'fields.*.content' => ['nullable', 'string'],
             'fields.*.required' => ['nullable', 'boolean'],
             'fields.*.options' => ['nullable', 'array'],
             'fields.*.options.*' => ['string', 'max:120'],
+            'fields.*.profile_key' => ['nullable', 'string', 'max:50'],
+            'fields.*.readonly' => ['nullable', 'boolean'],
             'published_at' => ['nullable', 'date'],
         ]);
     }

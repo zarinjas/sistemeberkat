@@ -78,6 +78,25 @@ const toolboxComponents = [
     { key: 'radio', label: 'Pilihan Radio' },
     { key: 'file', label: 'Muat Naik Dokumen' },
     { key: 'checkbox', label: 'Checkbox Persetujuan' },
+    { key: 'profile_field', label: 'Maklumat Profil (Autofill)' },
+];
+
+const PROFILE_KEY_OPTIONS = [
+    { key: 'name', label: 'Nama Penuh' },
+    { key: 'nric', label: 'No. IC (MyKad)' },
+    { key: 'phone', label: 'No. Telefon' },
+    { key: 'email', label: 'E-mel' },
+    { key: 'tarikh_lahir', label: 'Tarikh Lahir' },
+    { key: 'gender', label: 'Jantina' },
+    { key: 'marital_status', label: 'Status Perkahwinan' },
+    { key: 'address', label: 'Alamat' },
+    { key: 'postcode', label: 'Poskod' },
+    { key: 'city', label: 'Bandar' },
+    { key: 'state', label: 'Negeri' },
+    { key: 'job_title', label: 'Jawatan' },
+    { key: 'department', label: 'Jabatan' },
+    { key: 'employment_grade', label: 'Gred' },
+    { key: 'member_no', label: 'No. Ahli' },
 ];
 
 const slugify = (value) =>
@@ -97,6 +116,8 @@ const toFieldState = (field) => ({
     options: Array.isArray(field?.options) ? [...field.options] : [],
     optionsText: Array.isArray(field?.options) ? field.options.join(', ') : '',
     newOption: '',
+    profile_key: field?.profile_key || '',
+    readonly: Boolean(field?.readonly),
 });
 
 const formFields = ref(
@@ -126,6 +147,10 @@ const createField = (type = 'text') => {
 
     if (type === 'checkbox') {
         return toFieldState({ type: 'checkbox', label: 'Saya setuju dengan syarat permohonan' });
+    }
+
+    if (type === 'profile_field') {
+        return toFieldState({ type: 'profile_field', label: 'Nama Penuh', profile_key: 'name', readonly: true });
     }
 
     return toFieldState({ type, label: 'Soalan Baru' });
@@ -318,7 +343,7 @@ const buildPayload = () => {
         fields: formFields.value.map((field, index) => ({
             order: index + 1,
             type: field.type,
-            name: field.type === 'instruction' ? null : slugify(field.label || `field_${index + 1}`),
+            name: field.type === 'instruction' ? null : (field.type === 'profile_field' ? field.profile_key : slugify(field.label || `field_${index + 1}`)),
             label: field.type === 'instruction' ? null : field.label,
             content: field.type === 'instruction' ? field.content : null,
             required: field.type === 'instruction' ? false : field.required,
@@ -331,6 +356,8 @@ const buildPayload = () => {
                             .map((option) => option.trim())
                             .filter(Boolean)
                         : null,
+            profile_key: field.type === 'profile_field' ? field.profile_key : null,
+            readonly: field.type === 'profile_field' ? field.readonly : null,
         })),
         published_at: new Date().toISOString(),
     };
@@ -370,6 +397,10 @@ const preflightValidate = () => {
             if (!options.length) {
                 return 'Medan radio mesti mempunyai sekurang-kurangnya satu pilihan.';
             }
+        }
+
+        if (field.type === 'profile_field' && !field.profile_key) {
+            return 'Medan Maklumat Profil mesti mempunyai jenis data profil yang dipilih.';
         }
     }
 
@@ -601,7 +632,11 @@ const onCategoryKeyChange = () => {
                                     v-for="(field, index) in formFields"
                                     :key="field.id"
                                     class="rounded-xl border p-4"
-                                    :class="field.type === 'instruction' ? 'border-blue-200 bg-blue-50/60' : 'border-slate-200 bg-slate-50/50'"
+                                    :class="{
+                                        'border-blue-200 bg-blue-50/60': field.type === 'instruction',
+                                        'border-emerald-200 bg-emerald-50/60': field.type === 'profile_field',
+                                        'border-slate-200 bg-slate-50/50': field.type !== 'instruction' && field.type !== 'profile_field',
+                                    }"
                                 >
                                     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                                         <p class="text-sm font-semibold text-slate-800">Medan #{{ index + 1 }} · {{ field.type }}</p>
@@ -646,6 +681,34 @@ const onCategoryKeyChange = () => {
                                             rows="4"
                                             class="block w-full rounded-lg border-blue-300 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         ></textarea>
+                                    </div>
+
+                                    <div v-else-if="field.type === 'profile_field'" class="space-y-3">
+                                        <div>
+                                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Label Soalan</label>
+                                            <input
+                                                v-model="field.label"
+                                                type="text"
+                                                class="block w-full rounded-lg border-slate-300 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            >
+                                        </div>
+                                        <div>
+                                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Data Profil</label>
+                                            <select
+                                                v-model="field.profile_key"
+                                                class="block w-full rounded-lg border-slate-300 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            >
+                                                <option value="" disabled>Pilih data profil...</option>
+                                                <option v-for="opt in PROFILE_KEY_OPTIONS" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
+                                            </select>
+                                        </div>
+                                        <label class="inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                            <span class="text-sm font-medium text-slate-700">Readonly (pemohon tidak boleh ubah)</span>
+                                            <input v-model="field.readonly" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                        </label>
+                                        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                                            Nilai akan diisi secara automatik dari profil pemohon semasa borang dipaparkan.
+                                        </div>
                                     </div>
 
                                     <div v-else class="space-y-3">

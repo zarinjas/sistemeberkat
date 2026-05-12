@@ -210,6 +210,8 @@ const normalizeAdminSchema = (schema) => {
                   ? field.options.split(',').map((opt) => opt.trim()).filter(Boolean)
                   : [],
             accept: field.type === 'file' ? '.pdf,.jpg,.jpeg,.png' : undefined,
+            profile_key: field.profile_key || null,
+            readonly: !!field.readonly,
         };
 
         if (field.type === 'file') {
@@ -476,8 +478,12 @@ const initializeFormFromSchema = () => {
                 return;
             }
 
-            // Auto-fill dari profil jika field bertipe text/textarea/select dan masih kosong
-            if (field.type !== 'file' && field.type !== 'checkbox') {
+            if (field.type === 'profile_field') {
+                const profileValue = field.profile_key
+                    ? resolveProfileValue(field.profile_key, field.label)
+                    : resolveProfileValue(fieldKey, field.label);
+                dynamicPayload[fieldKey] = profileValue ?? defaultValue;
+            } else if (field.type !== 'file' && field.type !== 'checkbox') {
                 const profileValue = resolveProfileValue(fieldKey, field.label);
                 dynamicPayload[fieldKey] = profileValue ?? defaultValue;
             } else {
@@ -664,6 +670,23 @@ defineExpose({
                                 :placeholder="field.placeholder || ''"
                                 class="block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             />
+
+                            <div v-else-if="field.type === 'profile_field'" class="relative">
+                                <input
+                                    :id="field.name || field.id"
+                                    v-model="form.dynamic_payload[getFieldKey(field)]"
+                                    type="text"
+                                    :required="field.required"
+                                    :readonly="field.readonly"
+                                    :class="[
+                                        'block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-24',
+                                        field.readonly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : '',
+                                    ]"
+                                />
+                                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                    Autofill
+                                </span>
+                            </div>
 
                             <textarea
                                 v-else-if="field.type === 'textarea'"
